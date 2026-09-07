@@ -1,0 +1,2448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bulk Photo Tagger - B My Marketer</title>
+<meta name="theme-color" content="#030303">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    /* B My Marketer brand palette — brightened for more pop */
+    --brand:#2F8FEA;
+    --brand-hi:#4FB4FF;
+    --brand-lo:#1E73BE;
+    --brand-soft:rgba(47,143,234,.18);
+    --brand-line:rgba(79,180,255,.55);
+    --brand-ring:rgba(79,180,255,.45);
+    --mist:#EAF3FF;
+    --midnight:#000A26;
+
+    /* neutral shell, FivFold-style */
+    --bg:#030303;
+    --card:#09090B;
+    --card-2:#0D0D10;
+    --raise:#141417;
+    --border:rgba(255,255,255,.08);
+    --border-2:rgba(255,255,255,.14);
+
+    --fg:#FAFAFA;
+    --muted:#C2C2CC;
+    --faint:#9C9CA8;
+
+    --ok:#3CFFB0;
+    --bad:#FF5B6E;
+    --warn:#FFC24B;
+
+    --mono:'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans:'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+    --r:10px;
+    --r-lg:14px;
+    --wrap:1140px;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;position:relative;
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--fg);
+    padding-bottom:110px;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  body::before{
+    content:'';position:fixed;inset:0;
+    background-image:
+      linear-gradient(var(--border) 1px,transparent 1px),
+      linear-gradient(90deg,var(--border) 1px,transparent 1px);
+    background-size:56px 56px;
+    mask-image:radial-gradient(ellipse 70% 46% at 50% 0%,#000 5%,transparent 72%);
+    -webkit-mask-image:radial-gradient(ellipse 70% 46% at 50% 0%,#000 5%,transparent 72%);
+    pointer-events:none;z-index:1;opacity:.55;
+  }
+  /* ───── neon light bed ───── */
+  .neonwrap{
+    position:absolute;top:0;left:0;right:0;height:1120px;
+    overflow:hidden;pointer-events:none;z-index:0;
+    mask-image:linear-gradient(180deg,#000 0%,#000 62%,transparent 97%);
+    -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 62%,transparent 97%);
+  }
+  #neon{
+    position:absolute;inset:-8%;width:116%;height:116%;
+    filter:blur(18px) saturate(1.35);
+    opacity:.85;
+  }
+  /* keeps type legible over the moving light */
+  .neon-scrim{
+    position:absolute;inset:0;
+    background:
+      radial-gradient(ellipse 60% 42% at 50% 26%,rgba(3,3,3,.72),transparent 70%),
+      linear-gradient(180deg,rgba(3,3,3,.55),transparent 22%,transparent 62%,rgba(3,3,3,.85));
+  }
+  /* faint interlace, so it reads as footage rather than a gradient */
+  .neon-lines{
+    position:absolute;inset:0;opacity:.5;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);
+    animation:interlace 8s steps(60) infinite;
+  }
+  @keyframes interlace{to{transform:translateY(3px);}}
+
+  ::selection{background:var(--brand-soft);color:#fff;}
+  a{color:inherit;}
+
+  @keyframes rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+  .seq{opacity:0;animation:rise .6s cubic-bezier(.16,.84,.34,1) forwards;}
+  .seq-1{animation-delay:.04s;} .seq-2{animation-delay:.11s;} .seq-3{animation-delay:.18s;}
+  .seq-4{animation-delay:.25s;} .seq-5{animation-delay:.32s;}
+
+  /* ───── scroll reveal: sections fade/rise into place as they enter view ───── */
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.16,.84,.34,1),transform .7s cubic-bezier(.16,.84,.34,1);}
+  .reveal.in-view{opacity:1;transform:none;}
+  .reveal-group .reveal-item{opacity:0;transform:translateY(18px);transition:opacity .55s cubic-bezier(.16,.84,.34,1),transform .55s cubic-bezier(.16,.84,.34,1);}
+  .reveal-group.in-view .reveal-item{opacity:1;transform:none;}
+  .reveal-group.in-view .reveal-item:nth-child(1){transition-delay:.03s;}
+  .reveal-group.in-view .reveal-item:nth-child(2){transition-delay:.10s;}
+  .reveal-group.in-view .reveal-item:nth-child(3){transition-delay:.17s;}
+  .reveal-group.in-view .reveal-item:nth-child(4){transition-delay:.24s;}
+
+  /* subtle animated color sweep across the serif accent word */
+  .ital{
+    background:linear-gradient(90deg,var(--mist) 0%,var(--brand-hi) 35%,var(--mist) 60%,var(--brand-hi) 100%);
+    background-size:220% auto;
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    animation:shimmerText 7s linear infinite;
+  }
+  @keyframes shimmerText{to{background-position:-220% center;}}
+
+  /* gentle breathing glow behind the primary hero CTA */
+  .hero .cta:not(.outline){animation:ctaPulse 3.2s ease-in-out infinite;}
+  @keyframes ctaPulse{
+    0%,100%{box-shadow:0 8px 24px -14px var(--brand);}
+    50%{box-shadow:0 10px 34px -10px var(--brand-hi);}
+  }
+
+  /* logo mark gets a little life on hover */
+  .logomark{transition:transform .35s cubic-bezier(.34,1.56,.64,1),box-shadow .3s;}
+  .logo:hover .logomark{transform:rotate(-8deg) scale(1.08);}
+
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 22px;position:relative;z-index:1;}
+
+  /* ───── nav ───── */
+  .nav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(3,3,3,.7);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav .inner{
+    max-width:var(--wrap);margin:0 auto;padding:11px 22px;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  }
+  .logo{display:flex;align-items:center;gap:9px;}
+  .logomark{
+    flex:none;display:flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:8px;
+    background:linear-gradient(150deg,var(--brand-hi),var(--brand-lo));
+    color:#fff;font-weight:700;font-size:14px;letter-spacing:-.02em;
+    box-shadow:0 0 20px -6px var(--brand-ring);
+  }
+  .logomark .logo-img{display:none;}
+  /* once a real logo is supplied, the tile gets out of its way */
+  body.has-logo .logomark{
+    width:auto;height:auto;border-radius:0;
+    background:none;box-shadow:none;
+  }
+  body.has-logo .logomark .logo-img{
+    display:block;height:28px;width:auto;max-width:190px;object-fit:contain;
+  }
+  body.has-logo .logomark .logo-fallback{display:none;}
+  /* a wide wordmark already says the brand name, so the tagline shrinks */
+  body.has-logo.logo-wide .logo .wordmark{
+    font-size:13px;color:var(--muted);font-weight:500;
+    padding-left:11px;margin-left:2px;border-left:1px solid var(--border-2);
+  }
+  .logo .wordmark{font-size:14px;font-weight:600;letter-spacing:-.015em;}
+  .vpill{
+    font-family:var(--mono);font-size:10px;color:var(--faint);
+    border:1px solid var(--border);border-radius:99px;padding:3px 8px;
+  }
+  .nav .spacer{flex:1;}
+  .navlink{
+    font-size:13px;color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:8px;
+    transition:color .2s,background .2s;
+  }
+  .navlink:hover{color:var(--fg);background:var(--card-2);}
+  .summary{
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    background:var(--card);border:1px solid var(--border);
+    padding:6px 12px;border-radius:99px;white-space:nowrap;
+  }
+
+  /* ───── buttons: brand blue lives here ───── */
+  button{
+    font-family:var(--sans);font-size:13px;font-weight:500;
+    border-radius:var(--r);
+    border:1px solid var(--brand-line);
+    background:var(--raise);color:var(--fg);
+    padding:8px 15px;cursor:pointer;position:relative;overflow:hidden;
+    transition:transform .16s cubic-bezier(.2,.9,.3,1),background .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s;
+  }
+  button:hover{background:#191A1E;border-color:var(--brand);transform:translateY(-1px);}
+  button:active{transform:translateY(0);}
+  button:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--brand);}
+  button.primary{
+    background:var(--brand);color:#fff;border-color:var(--brand);font-weight:600;
+    box-shadow:0 6px 20px -12px var(--brand);
+  }
+  button.primary:hover{background:var(--brand-hi);border-color:var(--brand-hi);box-shadow:0 10px 26px -12px var(--brand-hi);}
+  button.primary::after{
+    content:'';position:absolute;top:0;bottom:0;left:-40%;width:40%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);
+    transform:skewX(-18deg);opacity:0;
+  }
+  button.primary:hover::after{opacity:1;animation:shine .7s ease forwards;}
+  @keyframes shine{to{left:120%;}}
+  button.ghost{background:transparent;color:var(--mist);border-color:var(--brand-line);}
+  button.ghost:hover{background:var(--brand-soft);border-color:var(--brand);color:#fff;}
+  button.tiny{font-size:11.5px;padding:6px 11px;border-radius:8px;}
+  button:disabled{opacity:.32;cursor:not-allowed;transform:none;box-shadow:none;}
+  button:disabled:hover{transform:none;background:var(--raise);border-color:var(--brand-line);}
+  input[type=file]{display:none;}
+
+  .cta{
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:600;text-decoration:none;
+    padding:11px 20px;border-radius:var(--r);
+    border:1px solid var(--brand);background:var(--brand);color:#fff;
+    transition:background .2s,transform .16s,box-shadow .2s;
+    box-shadow:0 8px 24px -14px var(--brand);
+  }
+  .cta:hover{background:var(--brand-hi);transform:translateY(-1px);}
+  .cta.outline{background:transparent;color:var(--mist);border-color:var(--brand-line);box-shadow:none;}
+  .cta.outline:hover{background:var(--brand-soft);border-color:var(--brand);color:#fff;}
+
+  select{
+    font-family:var(--mono);font-size:11.5px;
+    background:var(--card);color:var(--muted);
+    border:1px solid var(--brand-line);border-radius:8px;padding:7px 9px;cursor:pointer;
+  }
+  select:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--brand);}
+
+  /* ───── hero ───── */
+  .hero{padding:70px 0 34px;text-align:center;}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--mono);font-size:11px;color:var(--mist);
+    border:1px solid var(--brand-line);background:var(--brand-soft);
+    padding:5px 13px;border-radius:99px;margin-bottom:22px;
+  }
+  .badge .dot{width:5px;height:5px;border-radius:50%;background:var(--brand-hi);animation:blink 2.4s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .hero h1{
+    margin:0 auto 18px;
+    font-size:clamp(34px,6vw,62px);
+    font-weight:600;letter-spacing:-.04em;line-height:1.03;
+    max-width:15ch;
+  }
+  .hero h1 .soft{color:var(--faint);}
+  /* one word set in serif italic, borrowed from 21st */
+  .ital{
+    font-family:'Instrument Serif',Georgia,serif;
+    font-style:italic;font-weight:400;
+    letter-spacing:-.01em;
+    padding-right:.04em;
+  }
+  .hero h1 .ital{font-size:1.06em;}
+  .section-head h2 .ital{font-size:1.08em;color:var(--mist);}
+  .hero .sub{margin:0 auto 28px;font-size:17px;color:var(--muted);line-height:1.6;max-width:52ch;}
+  .hero .actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+  /* ───── live plot: the one bold element ───── */
+  .plotwrap{padding-top:40px;}
+  .plot{
+    position:relative;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    background:linear-gradient(180deg,rgba(47,143,234,.16),rgba(9,9,11,.86) 55%);
+    border:1px solid var(--border);border-radius:var(--r-lg);
+    overflow:hidden;
+  }
+  .plot svg{display:block;width:100%;height:auto;}
+  .graticule line{stroke:rgba(255,255,255,.07);stroke-width:1;}
+  .graticule line.major{stroke:rgba(255,255,255,.13);}
+  .graticule text{
+    fill:var(--faint);font-family:var(--mono);font-size:8px;letter-spacing:.04em;
+  }
+  .scanbar{opacity:.5;animation:scanPass 11s cubic-bezier(.55,0,.45,1) infinite;}
+  @keyframes scanPass{
+    0%{transform:translateX(0);}
+    60%,100%{transform:translateX(810px);}
+  }
+
+  /* a pin lands, throws one ring, and settles */
+  .pin{animation:pinDrop .62s cubic-bezier(.22,1.3,.36,1) both;}
+  @keyframes pinDrop{
+    0%{opacity:0;transform:translateY(-16px) scale(.4);}
+    70%{opacity:1;}
+    100%{opacity:1;transform:translateY(0) scale(1);}
+  }
+  .pin .halo{fill:url(#pinGlow);}
+  .pin .core{fill:#4FB4FF;stroke:#0B2A44;stroke-width:1.2;}
+  .pin .ring{
+    fill:none;stroke:#4FB4FF;stroke-width:1.2;transform-origin:center;
+    animation:pinRing 2.6s cubic-bezier(.2,.7,.3,1) infinite;
+  }
+  @keyframes pinRing{
+    0%{r:5;opacity:.7;}
+    60%,100%{r:19;opacity:0;}
+  }
+  .pin .label{
+    fill:var(--mist);font-family:var(--mono);font-size:8.5px;
+    paint-order:stroke;stroke:#050505;stroke-width:3px;stroke-linejoin:round;
+  }
+  .pin .tick{stroke:rgba(79,180,255,.55);stroke-width:1;stroke-dasharray:2 3;}
+  .pin.active .core{fill:#B7E0FF;}
+  .pin.active .burst{
+    fill:none;stroke:#B7E0FF;stroke-width:1.6;
+    animation:burst .75s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  @keyframes burst{0%{r:4;opacity:.9;}100%{r:34;opacity:0;}}
+
+  .plot-empty{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:12px;color:var(--faint);
+    pointer-events:none;transition:opacity .5s ease;
+  }
+  .plot.has-pins .plot-empty{opacity:0;}
+  .plot-foot{
+    display:flex;justify-content:space-between;gap:12px;
+    padding:10px 15px;border-top:1px solid var(--border);
+    font-family:var(--mono);font-size:10.5px;color:var(--faint);background:#000;
+  }
+  .plot-foot .right{color:rgba(255,255,255,.45);}
+
+  /* ───── labelled pill clusters ───── */
+  .clusters{padding-top:34px;display:flex;gap:44px;flex-wrap:wrap;justify-content:center;}
+  .cluster h4{
+    margin:0 0 10px;font-size:12.5px;font-weight:500;color:var(--faint);text-align:center;
+  }
+  .pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .pill-btn{
+    font-family:var(--sans);font-size:12.5px;font-weight:400;
+    color:var(--muted);text-decoration:none;
+    background:rgba(9,9,11,.7);border:1px solid var(--border);
+    padding:7px 14px;border-radius:99px;cursor:pointer;
+    backdrop-filter:blur(8px);
+    transition:color .2s,border-color .2s,background .2s,transform .16s;
+  }
+  .pill-btn:hover{color:#fff;border-color:var(--brand);background:var(--brand-soft);transform:translateY(-1px);}
+  .pill-btn.static{cursor:default;font-family:var(--mono);font-size:11px;color:var(--faint);}
+  .pill-btn.static:hover{transform:none;color:var(--faint);border-color:var(--border);background:rgba(9,9,11,.7);}
+
+  /* ───── stat tickers ───── */
+  .stats{padding:74px 22px 10px;text-align:center;}
+  .stats-line{
+    margin:0 auto 34px;max-width:24ch;
+    font-size:clamp(22px,3.2vw,34px);font-weight:600;
+    letter-spacing:-.03em;line-height:1.18;
+  }
+  .stats-line .soft{display:block;color:var(--faint);}
+  .tick{font-variant-numeric:tabular-nums;color:var(--brand-hi);}
+  .statrow{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--border);border:1px solid var(--border);
+    border-radius:var(--r-lg);overflow:hidden;
+  }
+  .stat-cell{
+    background:var(--card);padding:20px 14px;
+    display:flex;flex-direction:column;gap:5px;align-items:center;
+    transition:background .3s,transform .3s cubic-bezier(.2,.9,.3,1);
+  }
+  .stat-cell:hover{background:var(--card-2);transform:translateY(-3px);}
+  .stat-cell .tick{font-size:26px;font-weight:600;letter-spacing:-.03em;color:var(--fg);}
+  .stat-cell .k{font-family:var(--mono);font-size:10.5px;color:var(--faint);}
+
+  /* ───── numbered accordion ───── */
+  .faq-list{
+    border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;
+    background:var(--card);
+  }
+  .faq-list details + details{border-top:1px solid var(--border);}
+  .faq-list summary{
+    list-style:none;cursor:pointer;
+    display:flex;align-items:center;gap:16px;
+    padding:18px 20px;transition:background .25s;
+  }
+  .faq-list summary::-webkit-details-marker{display:none;}
+  .faq-list summary:hover{background:var(--card-2);}
+  .faq-list summary:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--brand);}
+  .q-n{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none;}
+  .q-t{font-size:14.5px;font-weight:500;letter-spacing:-.01em;flex:1;}
+  .q-i{
+    position:relative;width:13px;height:13px;flex:none;
+    transition:transform .32s cubic-bezier(.16,.84,.34,1);
+  }
+  .q-i::before,.q-i::after{
+    content:'';position:absolute;background:var(--muted);border-radius:1px;
+    transition:opacity .28s ease,background .2s;
+  }
+  .q-i::before{left:0;right:0;top:6px;height:1.5px;}
+  .q-i::after{top:0;bottom:0;left:6px;width:1.5px;}
+  .faq-list summary:hover .q-i::before,
+  .faq-list summary:hover .q-i::after{background:var(--brand-hi);}
+  details[open] .q-i{transform:rotate(180deg);}
+  details[open] .q-i::after{opacity:0;}
+  details[open] > summary{background:var(--card-2);}
+  details[open] .q-n{color:var(--brand-hi);}
+  .faq-list .a{
+    padding:0 20px 20px 57px;
+    animation:answerIn .38s cubic-bezier(.16,.84,.34,1) both;
+  }
+  @keyframes answerIn{
+    from{opacity:0;transform:translateY(-6px);}
+    to{opacity:1;transform:none;}
+  }
+  .faq-list .a p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.75;max-width:74ch;}
+
+  /* ───── marquee ───── */
+  .marquee{
+    padding:34px 0 10px;overflow:hidden;position:relative;z-index:1;
+    mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);
+  }
+  .track{display:flex;gap:10px;width:max-content;animation:scroll 46s linear infinite;}
+  .track + .track{margin-top:10px;animation-duration:56s;animation-direction:reverse;}
+  .marquee:hover .track{animation-play-state:paused;}
+  @keyframes scroll{to{transform:translateX(-50%);}}
+  .tag{
+    font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    border:1px solid var(--border);background:var(--card);
+    padding:7px 14px;border-radius:99px;white-space:nowrap;
+    transition:transform .25s cubic-bezier(.2,.9,.3,1),border-color .25s,color .25s;
+  }
+  .tag:hover{transform:translateY(-2px);border-color:var(--brand-line);color:var(--fg);}
+
+  /* ───── section shells ───── */
+  .section{padding:64px 0 8px;}
+  .section-head{text-align:center;margin-bottom:34px;}
+  .section-head h2{margin:0 0 10px;font-size:clamp(24px,3.4vw,34px);font-weight:600;letter-spacing:-.03em;}
+  .section-head p{margin:0;color:var(--muted);font-size:15px;line-height:1.6;}
+
+  .three{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:16px;align-items:stretch;}
+  .col{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);
+    padding:22px;display:flex;flex-direction:column;gap:9px;
+    transition:transform .35s cubic-bezier(.2,.9,.3,1),border-color .3s,box-shadow .35s;
+  }
+  .col:hover{transform:translateY(-4px);border-color:var(--border-2);box-shadow:0 18px 40px -26px #000;}
+  .col.feature:hover{box-shadow:0 20px 60px -28px var(--brand);}
+  .col h3{margin:0;font-size:14px;font-weight:600;color:var(--muted);}
+  .col p{margin:0;font-size:13.5px;color:var(--faint);line-height:1.65;}
+  .col.feature{
+    background:linear-gradient(180deg,rgba(47,143,234,.16),var(--card) 60%);
+    border-color:var(--brand-line);
+    box-shadow:0 0 60px -30px var(--brand);
+  }
+  .col.feature h3{color:var(--fg);font-size:16px;}
+  .col.feature p{color:var(--muted);}
+  .col .stat{font-family:var(--mono);font-size:12px;color:var(--brand-hi);margin-top:auto;padding-top:12px;}
+
+  .term{
+    font-family:var(--mono);font-size:12px;color:var(--mist);
+    background:#000;border:1px solid var(--border);border-radius:8px;
+    padding:10px 12px;line-height:1.7;overflow-x:auto;white-space:nowrap;
+  }
+  .term .p{color:var(--brand-hi);}
+
+  /* how it works */
+  .guide .steps{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+    background:var(--border);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;
+  }
+  .guide .step{background:var(--card);padding:22px;transition:background .3s,transform .3s cubic-bezier(.2,.9,.3,1);position:relative;z-index:1;}
+  .guide .step:hover{background:var(--card-2);transform:translateY(-3px);}
+  .guide .n{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:7px;margin-bottom:13px;
+    font-family:var(--mono);font-size:12px;
+    color:var(--brand-hi);border:1px solid var(--brand-line);background:var(--brand-soft);
+    transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .3s;
+  }
+  .guide .step:hover .n{transform:scale(1.12) rotate(-6deg);background:var(--brand-soft);}
+  .guide .step h3{margin:0 0 7px;font-size:15px;font-weight:600;letter-spacing:-.01em;}
+  .guide .step p{margin:0 0 12px;font-size:13.5px;color:var(--muted);line-height:1.65;}
+  .guide .step b{color:var(--fg);font-weight:600;}
+  .guide-toggle{
+    display:block;margin:16px auto 0;background:none;border:none;
+    color:var(--faint);font-size:12px;padding:4px 8px;
+  }
+  .guide-toggle:hover{color:var(--fg);background:none;transform:none;border:none;}
+  body.guide-hidden .guide .steps{display:none;}
+
+  /* readiness readout + filter */
+  .qsearch{
+    flex:0 1 220px;min-width:150px;
+    font-family:var(--sans);font-size:12.5px;
+    background:#000;color:var(--fg);
+    border:1px solid var(--border);border-radius:8px;padding:8px 11px;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .qsearch::placeholder{color:var(--faint);}
+  .qsearch:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);}
+
+  .readout{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .readout:empty{display:none;}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    background:var(--card);border:1px solid var(--border);
+    padding:6px 12px;border-radius:99px;
+  }
+  .chip .d{width:5px;height:5px;border-radius:50%;background:var(--faint);}
+  .chip.ready{color:var(--mist);border-color:var(--brand-line);background:var(--brand-soft);}
+  .chip.ready .d{background:var(--brand-hi);}
+  .chip.warn{color:var(--warn);border-color:rgba(224,166,74,.34);background:rgba(224,166,74,.08);cursor:pointer;}
+  .chip.warn .d{background:var(--warn);}
+  .chip.warn:hover{background:rgba(224,166,74,.16);}
+
+  /* ───── the tool ───── */
+  .tool{padding-top:56px;scroll-margin-top:70px;}
+  .queue-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .queue-head h2{margin:0;font-size:17px;font-weight:600;letter-spacing:-.02em;}
+  .queue-head .sub{font-family:var(--mono);font-size:11px;color:var(--faint);}
+  .queue-head .right{margin-left:auto;display:flex;gap:8px;}
+
+  @keyframes cardIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  .business-card{
+    position:relative;background:var(--card);
+    border:1px solid var(--border);border-radius:var(--r-lg);
+    margin-bottom:14px;
+    animation:cardIn .45s cubic-bezier(.16,.84,.34,1) both;
+    transition:border-color .3s;
+  }
+  .business-card:hover{border-color:var(--border-2);}
+  .business-card::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
+    background:linear-gradient(180deg,var(--brand-hi),transparent 70%);
+    transform:scaleY(0);transform-origin:top;
+    transition:transform .55s cubic-bezier(.16,.84,.34,1);
+  }
+  .business-card.geo-locked::before{transform:scaleY(1);}
+
+  .biz-header{
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+    padding:13px 15px;border-bottom:1px solid var(--border);
+    background:var(--card-2);
+    border-radius:var(--r-lg) var(--r-lg) 0 0;
+    position:sticky;top:53px;z-index:6;
+  }
+  .business-card.is-collapsed .biz-header{position:relative;top:auto;}
+  .biz-header input{
+    border:1px solid var(--border);border-radius:8px;
+    padding:9px 11px;font-size:13px;font-family:var(--sans);
+    background:#000;color:var(--fg);
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .biz-header input::placeholder,.post-fields input::placeholder,
+  .post-fields textarea::placeholder,.bulk-kw textarea::placeholder{color:var(--faint);}
+  .biz-header input:focus,.post-fields input:focus,
+  .post-fields textarea:focus,.bulk-kw textarea:focus{
+    outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);
+  }
+  .biz-name{flex:1 1 220px;font-weight:600;}
+  .biz-lat,.biz-lng{width:112px;font-family:var(--mono)!important;font-size:12px!important;}
+  .biz-lat.flash,.biz-lng.flash{animation:flash .6s ease;}
+  @keyframes flash{0%{background:var(--brand-soft);}100%{background:#000;}}
+
+  .biz-badge{
+    font-family:var(--mono);font-size:11px;color:var(--faint);
+    border:1px solid var(--border);background:#000;
+    padding:6px 10px;border-radius:99px;white-space:nowrap;
+    transition:color .25s,border-color .25s,background .25s;
+  }
+  .biz-badge.complete{color:var(--brand-hi);border-color:var(--brand-line);background:var(--brand-soft);}
+
+  .toggle-collapse{margin-left:auto;padding:7px 11px;line-height:1;}
+  .toggle-collapse span{display:inline-block;transition:transform .3s cubic-bezier(.16,.84,.34,1);}
+  .remove-biz{color:var(--bad);border-color:rgba(255,107,99,.28);background:transparent;}
+  .remove-biz:hover{background:rgba(255,107,99,.1);border-color:rgba(255,107,99,.5);color:var(--bad);}
+
+  .biz-actions{
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+    padding:10px 15px;border-bottom:1px solid var(--border);background:#000;
+  }
+  .biz-actions .hint{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-left:auto;white-space:nowrap;}
+  .maps-link{
+    font-size:12px;color:var(--mist);text-decoration:none;
+    padding:6px 11px;border-radius:8px;
+    border:1px solid var(--brand-line);background:var(--brand-soft);white-space:nowrap;
+    transition:background .2s,border-color .2s,color .2s;
+  }
+  .maps-link:hover{background:rgba(47,143,234,.28);border-color:var(--brand);color:#fff;}
+
+  .bulk-kw{display:none;padding:12px 15px;border-bottom:1px solid var(--border);background:#000;}
+  .bulk-kw.open{display:block;animation:rise .3s ease both;}
+  .bulk-kw textarea{
+    width:100%;min-height:88px;resize:vertical;background:#000;color:var(--fg);
+    border:1px solid var(--border);border-radius:8px;
+    padding:10px 12px;font-family:var(--mono);font-size:12px;line-height:1.7;
+  }
+  .bulk-kw .bulk-desc{
+    width:100%;margin-top:9px;background:#000;color:var(--fg);
+    border:1px solid var(--border);border-radius:8px;
+    padding:9px 12px;font-family:var(--sans);font-size:12.5px;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .bulk-kw .bulk-desc:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);}
+  .bulk-kw .row{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap;}
+  .bulk-kw .row .note-sm{font-size:11.5px;color:var(--faint);line-height:1.5;}
+
+  .posts-grid{padding:14px 15px;display:flex;flex-direction:column;gap:10px;}
+  @keyframes rowIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .post-row{
+    display:grid;grid-template-columns:96px 1fr;gap:13px;
+    border:1px solid var(--border);border-radius:var(--r);
+    padding:11px;position:relative;background:#000;
+    animation:rowIn .32s cubic-bezier(.16,.84,.34,1) both;
+    transition:border-color .25s,background .25s;
+  }
+  .post-row:hover{border-color:var(--border-2);background:#0B0B0E;}
+  .posts-grid .post-row:nth-child(1){animation-delay:.02s;}
+  .posts-grid .post-row:nth-child(2){animation-delay:.05s;}
+  .posts-grid .post-row:nth-child(3){animation-delay:.08s;}
+  .posts-grid .post-row:nth-child(4){animation-delay:.11s;}
+  .posts-grid .post-row:nth-child(5){animation-delay:.14s;}
+  .post-row.needs-kw .post-keywords{border-color:rgba(224,166,74,.45);}
+  .post-row.needs-kw .pip{background:var(--warn);}
+  .post-row[data-status="done"]{border-color:rgba(74,222,155,.34);}
+  .post-row[data-status="failed"]{border-color:rgba(255,107,99,.4);background:rgba(255,107,99,.05);}
+
+  .post-row .idx{
+    position:absolute;top:9px;left:12px;
+    font-family:var(--mono);font-size:10px;color:var(--faint);
+    display:flex;align-items:center;gap:6px;
+  }
+  .post-row .pip{width:5px;height:5px;border-radius:50%;background:transparent;transition:background .3s;}
+  .post-row[data-status="done"] .pip{background:var(--ok);}
+  .post-row[data-status="failed"] .pip{background:var(--bad);}
+
+  .file-drop{
+    width:96px;height:96px;margin-top:16px;
+    border:1.5px dashed var(--border-2);border-radius:8px;
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    font-size:10.5px;color:var(--faint);cursor:pointer;
+    overflow:hidden;position:relative;background:#000;
+    transition:border-color .25s,box-shadow .25s,color .25s,transform .2s cubic-bezier(.2,.9,.3,1);
+  }
+  .file-drop:hover{border-color:var(--brand);color:var(--mist);transform:translateY(-2px);}
+  .file-drop.dragging{border-color:var(--brand);border-style:solid;box-shadow:0 0 0 3px var(--brand-soft);transform:scale(1.03);}
+  .file-drop.has-file{border-style:solid;border-color:var(--brand-line);}
+  .file-drop img.thumb{width:100%;height:100%;object-fit:cover;display:none;}
+  .file-drop.has-file img.thumb{animation:scanIn .5s cubic-bezier(.16,.84,.34,1) both;}
+  @keyframes scanIn{from{opacity:0;transform:scale(1.1);filter:saturate(.2) brightness(.6);}to{opacity:1;transform:none;filter:none;}}
+  .file-drop.has-file::before{
+    content:'';position:absolute;left:0;right:0;height:34%;
+    background:linear-gradient(180deg,transparent,rgba(79,180,255,.7));
+    animation:scanLine .65s cubic-bezier(.4,0,.2,1) 1 both;pointer-events:none;
+  }
+  @keyframes scanLine{0%{top:-34%;opacity:1;}80%{opacity:1;}100%{top:100%;opacity:0;}}
+  .file-drop .file-label{padding:8px;line-height:1.4;word-break:break-word;}
+  .file-drop.has-file .file-label{
+    position:absolute;left:0;right:0;bottom:0;
+    background:linear-gradient(180deg,transparent,rgba(0,0,0,.94));
+    color:var(--fg);font-family:var(--mono);font-size:9px;
+    padding:14px 5px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  .post-fields{display:flex;flex-direction:column;gap:7px;margin-top:16px;}
+  .post-fields input,.post-fields textarea{
+    border:1px solid var(--border);border-radius:8px;
+    padding:9px 11px;font-size:12.5px;font-family:var(--sans);
+    background:#000;color:var(--fg);width:100%;resize:vertical;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .post-fields textarea{min-height:42px;line-height:1.55;}
+
+  .remove-post{
+    position:absolute;top:6px;right:7px;
+    border:none;background:transparent;color:var(--faint);
+    font-size:12px;padding:3px 7px;border-radius:6px;opacity:0;
+    transition:opacity .2s,color .2s,background .2s,transform .2s;
+  }
+  .post-row:hover .remove-post,.remove-post:focus-visible{opacity:1;}
+  .remove-post:hover{color:var(--bad);background:rgba(255,107,99,.12);transform:rotate(90deg);border:none;}
+
+  .add-post-row{padding:0 15px 15px;}
+  .add-post-row button{width:100%;border-style:dashed;background:transparent;color:var(--muted);font-size:12.5px;}
+  .add-post-row button:hover{color:#fff;border-color:var(--brand);background:var(--brand-soft);}
+
+  .empty-state{
+    text-align:center;color:var(--muted);
+    padding:60px 24px;border:1.5px dashed var(--border);
+    border-radius:var(--r-lg);font-size:14px;line-height:1.7;background:var(--card);
+  }
+  .empty-state .mark{display:block;font-size:24px;margin-bottom:12px;opacity:.5;animation:float 5s ease-in-out infinite;}
+  .empty-state p{margin:0 0 16px;}
+  @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+
+  /* ───── dock ───── */
+  footer.dock{
+    position:fixed;left:0;right:0;bottom:0;z-index:45;
+    background:rgba(3,3,3,.86);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border-top:1px solid var(--border);padding:12px 22px;transition:border-color .4s;
+  }
+  body.is-processing footer.dock{border-top-color:var(--brand-line);}
+  footer.dock .inner{max-width:var(--wrap);margin:0 auto;display:flex;flex-wrap:wrap;gap:12px;align-items:center;}
+  .opts{display:flex;gap:7px;align-items:center;}
+  .progress-wrap{flex:1 1 220px;min-width:170px;}
+  .meter-row{display:flex;align-items:center;gap:11px;}
+  .meter-row .progress-bar{flex:1;}
+  .pct{
+    font-family:var(--mono);font-size:11px;color:var(--faint);
+    font-variant-numeric:tabular-nums;min-width:34px;text-align:right;
+    transition:color .3s;
+  }
+  body.is-processing .pct{color:var(--brand-hi);}
+  .progress-bar{height:5px;background:rgba(255,255,255,.09);border-radius:99px;overflow:hidden;}
+  .progress-bar .fill{
+    height:100%;width:0%;border-radius:99px;position:relative;
+    background:linear-gradient(90deg,var(--brand-lo),var(--brand-hi));
+    transition:width .4s cubic-bezier(.16,.84,.34,1);
+  }
+  body.is-processing .progress-bar .fill::after{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);
+    animation:meter 1.2s linear infinite;
+  }
+  @keyframes meter{from{transform:translateX(-100%);}to{transform:translateX(100%);}}
+  .status-text{
+    font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:7px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  body.is-processing .status-text{color:var(--brand-hi);}
+
+  /* ───── notes, errors, toasts ───── */
+  .note{max-width:var(--wrap);margin:28px auto 0;padding:0 22px;font-size:12px;color:var(--faint);line-height:1.75;position:relative;z-index:1;}
+  .note .box{border-left:2px solid var(--brand-line);padding:3px 0 3px 15px;max-width:78ch;}
+  .note b{color:var(--muted);font-weight:600;}
+
+  .lib-warning{
+    position:sticky;top:0;z-index:60;
+    background:rgba(255,107,99,.12);color:var(--bad);
+    border-bottom:1px solid rgba(255,107,99,.35);
+    backdrop-filter:blur(10px);padding:12px 18px;font-size:13px;text-align:center;line-height:1.6;
+  }
+
+  .error-panel{max-width:var(--wrap);margin:16px auto 0;padding:0 22px;position:relative;z-index:1;}
+  .error-panel .box{
+    background:rgba(255,107,99,.06);border:1px solid rgba(255,107,99,.26);
+    border-radius:var(--r);padding:14px 16px;animation:rise .4s ease both;
+  }
+  .error-panel h3{margin:0 0 9px;font-size:13px;color:var(--bad);font-weight:600;}
+  .error-panel ul{margin:0;padding-left:18px;font-size:11.5px;color:#F1B8B4;line-height:1.75;font-family:var(--mono);}
+  .error-panel .hint{margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.6;}
+
+  #toasts{position:fixed;right:22px;bottom:96px;z-index:70;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .toast{
+    background:var(--raise);border:1px solid var(--border-2);border-left:2px solid var(--brand);
+    border-radius:var(--r);padding:11px 15px;font-size:12.5px;color:var(--fg);
+    max-width:330px;line-height:1.5;box-shadow:0 18px 40px -18px #000;
+    animation:toastIn .35s cubic-bezier(.16,.84,.34,1) both;
+  }
+  .toast{display:flex;align-items:center;gap:12px;}
+  .toast .undo{
+    flex:none;font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:7px;
+    background:transparent;color:var(--mist);border:1px solid var(--brand-line);
+  }
+  .toast .undo:hover{background:var(--brand-soft);border-color:var(--brand);color:#fff;transform:none;}
+  .toast.bad{border-left-color:var(--bad);}
+  .toast.out{animation:toastOut .3s ease forwards;}
+  @keyframes toastIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
+  @keyframes toastOut{to{opacity:0;transform:translateX(20px);}}
+
+  /* drag a batch anywhere and every card offers itself as a target */
+  .dropveil{
+    position:fixed;inset:0;z-index:65;pointer-events:none;
+    background:radial-gradient(ellipse at center,rgba(47,143,234,.20),rgba(3,3,3,.72));
+    backdrop-filter:blur(2px);
+    opacity:0;transition:opacity .22s ease;
+    display:flex;align-items:center;justify-content:center;
+  }
+  body.dragging-files .dropveil{opacity:1;}
+  .dropveil-inner{
+    font-family:var(--mono);font-size:13px;color:var(--mist);
+    border:1px dashed var(--brand);background:rgba(3,3,3,.9);
+    padding:14px 22px;border-radius:var(--r);
+    animation:veilPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes veilPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.03);}}
+  body.dragging-files .business-card{
+    border-color:var(--brand);
+    box-shadow:0 0 0 3px var(--brand-soft);
+    position:relative;z-index:66;
+  }
+
+  /* ───── page footer ───── */
+  .pagefoot{border-top:1px solid var(--border);margin-top:64px;padding:36px 0 30px;position:relative;z-index:1;}
+  .pagefoot .cols{display:flex;gap:40px;flex-wrap:wrap;}
+  .pagefoot .about{max-width:34ch;}
+  .pagefoot .about p{margin:12px 0 0;font-size:12.5px;color:var(--faint);line-height:1.7;}
+  .pagefoot h4{margin:0 0 12px;font-size:12px;font-weight:600;color:var(--muted);}
+  .pagefoot ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .pagefoot a{font-size:12.5px;color:var(--faint);text-decoration:none;transition:color .2s;}
+  .pagefoot a:hover{color:var(--brand-hi);}
+  .pagefoot .base{
+    margin-top:30px;padding-top:18px;border-top:1px solid var(--border);
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    font-size:11.5px;color:var(--faint);
+  }
+
+  /* ───── responsive ───── */
+  @media (max-width:900px){
+    .three{grid-template-columns:1fr;}
+    .statrow{grid-template-columns:1fr 1fr;}
+    .guide .steps{grid-template-columns:1fr;}
+  }
+  @media (max-width:640px){
+    .hero{padding:44px 0 26px;}
+    .nav .inner{padding:10px 16px;}
+    .summary{order:10;width:100%;text-align:center;}
+    .navlink{display:none;}
+    .post-row{grid-template-columns:1fr;}
+    .file-drop{margin-top:20px;width:100%;height:140px;}
+    .post-fields{margin-top:0;}
+    .biz-lat,.biz-lng{width:calc(50% - 4px);}
+    .remove-post{opacity:1;}
+    .opts{width:100%;}
+    .clusters{gap:26px;}
+    .stats{padding-top:52px;}
+    .faq-list .a{padding-left:20px;}
+    body{padding-bottom:150px;}
+    #toasts{left:16px;right:16px;bottom:150px;}
+    .toast{max-width:none;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
+    .seq{opacity:1;}
+    .business-card::before{transform:scaleY(1);}
+    .track{animation:none;}
+    .neon-lines{animation:none;}
+    .scanbar,.pin .ring{animation:none;}
+    .scanbar{opacity:0;}
+  }
+</style>
+</head>
+<body>
+
+<div class="neonwrap" aria-hidden="true">
+  <canvas id="neon"></canvas>
+  <div class="neon-scrim"></div>
+  <div class="neon-lines"></div>
+</div>
+
+<div class="nav">
+  <div class="inner">
+    <div class="logo">
+      <span class="logomark"><img class="logo-img" alt="B My Marketer"><span class="logo-fallback" aria-hidden="true">B</span></span>
+      <span class="wordmark">Bulk Photo Tagger</span>
+      <span class="vpill">v2.0</span>
+    </div>
+    <div class="spacer"></div>
+    <a class="navlink" href="#queue">Queue</a>
+    <a class="navlink" href="#how">How it works</a>
+    <a class="navlink" href="https://bmymarketer.com" target="_blank" rel="noopener">B My Marketer</a>
+    <span class="summary" id="summaryBar">0 businesses • 0/0 photos</span>
+    <button class="primary" id="addBusinessBtn">+ Add business</button>
+  </div>
+</div>
+
+<section class="hero wrap">
+  <div class="badge seq seq-1"><span class="dot"></span> Runs in your browser. No uploads.</div>
+  <h1 class="seq seq-2">Geotag a <span class="ital">month</span> of GBP photos, <span class="soft">in one pass.</span></h1>
+  <p class="sub seq seq-3">Set coordinates once per business, drop in the whole batch, and download a single ZIP with GPS, keywords, and descriptions written into every file.</p>
+  <div class="actions seq seq-4">
+    <a class="cta" href="#queue">Start a batch</a>
+    <a class="cta outline" href="#how">See how it works</a>
+  </div>
+</section>
+
+<div class="clusters wrap seq seq-5">
+  <div class="cluster">
+    <h4>Start here:</h4>
+    <div class="pills">
+      <button class="pill-btn" data-act="add">Add a business</button>
+      <button class="pill-btn" data-act="import">Import a saved list</button>
+      <a class="pill-btn" href="#how">Read the 3 steps</a>
+      <a class="pill-btn" href="#faq">FAQ</a>
+    </div>
+  </div>
+  <div class="cluster">
+    <h4>Written into every file:</h4>
+    <div class="pills">
+      <span class="pill-btn static">GPS coordinates</span>
+      <span class="pill-btn static">Keywords</span>
+      <span class="pill-btn static">Description</span>
+      <span class="pill-btn static">Business name</span>
+    </div>
+  </div>
+</div>
+
+<section class="plotwrap wrap seq seq-5">
+  <div class="plot">
+    <svg id="plotSvg" viewBox="0 0 720 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <linearGradient id="scanFade" x1="0" x2="1">
+          <stop offset="0" stop-color="#4FB4FF" stop-opacity="0"/>
+          <stop offset="0.55" stop-color="#4FB4FF" stop-opacity="0.5"/>
+          <stop offset="1" stop-color="#4FB4FF" stop-opacity="0"/>
+        </linearGradient>
+        <radialGradient id="pinGlow">
+          <stop offset="0" stop-color="#4FB4FF" stop-opacity="0.45"/>
+          <stop offset="1" stop-color="#4FB4FF" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <g class="graticule" id="graticule"></g>
+      <rect class="scanbar" x="-90" y="0" width="90" height="300" fill="url(#scanFade)"/>
+      <g id="pinLayer"></g>
+    </svg>
+    <div class="plot-empty" id="plotEmpty">Coordinates you enter plot here, live.</div>
+    <div class="plot-foot">
+      <span id="plotCount">No locations plotted</span>
+      <span class="right">WGS-84 &middot; equirectangular</span>
+    </div>
+  </div>
+</section>
+
+<div class="marquee">
+  <div class="track">
+    <span class="tag">GPSLatitude</span><span class="tag">GPSLongitude</span><span class="tag">GPSMapDatum</span><span class="tag">WGS-84</span><span class="tag">XPTitle</span><span class="tag">XPKeywords</span><span class="tag">XPComment</span><span class="tag">ImageDescription</span><span class="tag">EXIF 0th IFD</span><span class="tag">JPEG</span><span class="tag">ZIP</span><span class="tag">Google Business Profile</span>
+    <span class="tag">GPSLatitude</span><span class="tag">GPSLongitude</span><span class="tag">GPSMapDatum</span><span class="tag">WGS-84</span><span class="tag">XPTitle</span><span class="tag">XPKeywords</span><span class="tag">XPComment</span><span class="tag">ImageDescription</span><span class="tag">EXIF 0th IFD</span><span class="tag">JPEG</span><span class="tag">ZIP</span><span class="tag">Google Business Profile</span>
+  </div>
+  <div class="track">
+    <span class="tag">Local SEO</span><span class="tag">Multi-location</span><span class="tag">Bulk upload</span><span class="tag">Maps link paste</span><span class="tag">Autosave</span><span class="tag">Drag and drop</span><span class="tag">Per-business folders</span><span class="tag">Keyword filenames</span><span class="tag">Offline</span><span class="tag">No account</span>
+    <span class="tag">Local SEO</span><span class="tag">Multi-location</span><span class="tag">Bulk upload</span><span class="tag">Maps link paste</span><span class="tag">Autosave</span><span class="tag">Drag and drop</span><span class="tag">Per-business folders</span><span class="tag">Keyword filenames</span><span class="tag">Offline</span><span class="tag">No account</span>
+  </div>
+</div>
+
+<section class="stats wrap reveal">
+  <h2 class="stats-line">
+    <span class="tick" id="statTagged">0</span> photos tagged on this machine.
+    <span class="soft">From one location to a hundred, the run is the <span class="ital">same</span></span>
+  </h2>
+  <div class="statrow reveal-group">
+    <div class="stat-cell reveal-item"><span class="tick" id="statPlotted">0</span><span class="k">locations plotted</span></div>
+    <div class="stat-cell reveal-item"><span class="tick" id="statQueued">0</span><span class="k">photos in the queue</span></div>
+    <div class="stat-cell reveal-item"><span class="tick" id="statBatches">0</span><span class="k">batches run</span></div>
+    <div class="stat-cell reveal-item"><span class="tick" id="statSaved">0</span><span class="k">minutes saved, est.</span></div>
+  </div>
+</section>
+
+<main class="tool wrap" id="queue">
+  <div class="queue-head">
+    <h2>Queue</h2>
+    <input id="queueSearch" class="qsearch" type="search" placeholder="Filter by business name" autocomplete="off">
+    <div class="right">
+      <button class="ghost tiny" id="importBtn">Import list</button>
+      <button class="ghost tiny" id="exportBtn">Save list</button>
+      <input type="file" id="importFile" accept="application/json">
+      <button class="ghost tiny" id="collapseAllBtn">Collapse all</button>
+      <button class="ghost tiny" id="clearAllBtn">Clear all</button>
+    </div>
+  </div>
+  <div class="readout" id="readout"></div>
+  <div id="businessesContainer"></div>
+  <div class="empty-state" id="emptyState">
+    <span class="mark" aria-hidden="true">📍</span>
+    <p>Nothing in the queue yet.</p>
+    <button class="primary" id="emptyAddBtn">Add your first business</button>
+  </div>
+</main>
+
+<div class="error-panel" id="errorPanel" style="display:none;">
+  <div class="box">
+    <h3 id="errorPanelTitle">These photos could not be processed</h3>
+    <ul id="errorList"></ul>
+    <div class="hint">Most common cause: iPhone HEIC photos don't decode in the browser. Convert them to JPEG and run the batch again. The failed rows are outlined in red in the queue.</div>
+  </div>
+</div>
+
+<div class="note">
+  <div class="box">
+    <b>Note:</b> Embedding GPS, keywords, and a description is a widely used local SEO practice that ties a photo to a location, but Google has not confirmed it as a ranking factor. Treat it as a supporting signal, not a guarantee. Your photos never leave your computer, since everything runs in the browser. Always upload to GBP straight from the device, because WhatsApp, email, and social apps strip EXIF and geo-tag data automatically.
+  </div>
+</div>
+
+<section class="section guide wrap" id="how">
+  <div class="section-head">
+    <h2>How it <span class="ital">works</span></h2>
+    <p>Three steps per business, however many photos you have.</p>
+  </div>
+  <div class="steps reveal-group">
+    <div class="step reveal-item">
+      <span class="n">1</span>
+      <h3>Drop the pin</h3>
+      <p>Paste <b>coordinates or a Google Maps link</b> straight into the latitude box. Both fields fill in and the card's left edge lights up.</p>
+      <div class="term"><span class="p">paste</span> 31.5204, 74.3587</div>
+    </div>
+    <div class="step reveal-item">
+      <span class="n">2</span>
+      <h3>Load the batch</h3>
+      <p>Hit <b>Add photos</b> and select the lot, or drag the folder onto the card. Rows are created for every file automatically.</p>
+      <div class="term"><span class="p">select</span> 90 files &rarr; 90 rows</div>
+    </div>
+    <div class="step reveal-item">
+      <span class="n">3</span>
+      <h3>Tag and download</h3>
+      <p>Paste your keyword list in bulk, then run it. You get one ZIP, <b>foldered per business</b>, filenames built from the keywords.</p>
+      <div class="term"><span class="p">output</span> gbp-tagged-photos.zip</div>
+    </div>
+  </div>
+  <button class="guide-toggle" id="guideToggle">Hide guide</button>
+</section>
+
+<section class="section wrap">
+  <div class="section-head">
+    <h2>Where the <span class="ital">time</span> goes</h2>
+    <p>A 90-photo month across three locations, done three ways.</p>
+  </div>
+  <div class="three reveal-group">
+    <div class="col reveal-item">
+      <h3>By hand</h3>
+      <p>Open each photo in an EXIF editor, retype the coordinates, retype the keywords, rename the file, sort it into a folder. Every single photo.</p>
+      <div class="stat">~2 hours, and mistakes compound</div>
+    </div>
+    <div class="col feature reveal-item">
+      <h3>Bulk Photo Tagger</h3>
+      <p>Coordinates once per business, keywords pasted as a list, photos loaded in one selection. Everything runs locally, three photos decoding at a time, and the ZIP is stored rather than deflated.</p>
+      <div class="stat">Under 2 minutes for the same 90</div>
+    </div>
+    <div class="col reveal-item">
+      <h3>Online bulk taggers</h3>
+      <p>Upload client photos to somebody else's server, wait on the queue, hit the free-tier cap, then download and hope the metadata survived.</p>
+      <div class="stat">Slower, and your files leave the building</div>
+    </div>
+  </div>
+</section>
+
+<section class="section faq wrap reveal" id="faq">
+  <div class="section-head">
+    <h2>Questions, <span class="ital">answered</span></h2>
+    <p>What the tool writes, what it does not, and where things go wrong.</p>
+  </div>
+  <div class="faq-list">
+    <details>
+      <summary><span class="q-n">01</span><span class="q-t">Does Google actually rank photos by geotag?</span><span class="q-i"></span></summary>
+      <div class="a"><p>Not confirmed. Google has never listed photo EXIF as a ranking factor, and has at times said it strips metadata on upload. Embedding GPS, keywords, and a description is standard practice across local SEO and it costs nothing to do properly, but treat it as a supporting signal rather than a lever. Anyone promising rankings from geotagging alone is overselling it.</p></div>
+    </details>
+    <details>
+      <summary><span class="q-n">02</span><span class="q-t">Why do photos need re-attaching after I reload?</span><span class="q-i"></span></summary>
+      <div class="a"><p>Browsers do not let a page hold on to files between sessions, for good reason. Business names, coordinates, keywords, and descriptions are all saved automatically and come back, so only the photos themselves need reselecting. Use Add photos and the whole batch lands in one go.</p></div>
+    </details>
+    <details>
+      <summary><span class="q-n">03</span><span class="q-t">My iPhone photos failed. What happened?</span><span class="q-i"></span></summary>
+      <div class="a"><p>They were almost certainly HEIC. Most browsers cannot decode that format, so the row fails and gets outlined in red. Convert to JPEG first, or set the iPhone camera to Most Compatible under Settings, Camera, Formats. The tool flags HEIC files with a warning on the thumbnail before you run the batch.</p></div>
+    </details>
+    <details>
+      <summary><span class="q-n">04</span><span class="q-t">Do the photos get uploaded anywhere?</span><span class="q-i"></span></summary>
+      <div class="a"><p>No. Decoding, resizing, EXIF writing, and ZIP packing all happen in your browser. Nothing is sent to a server, there is no account, and once the page has loaded it works with the wifi off. That is the main reason to use this over an online bulk tagger when the photos belong to a client.</p></div>
+    </details>
+    <details>
+      <summary><span class="q-n">05</span><span class="q-t">How are the filenames and folders decided?</span><span class="q-i"></span></summary>
+      <div class="a"><p>Each business becomes a folder, named from the business name in lowercase with hyphens. Each file is named from that post's keywords, trimmed to 90 characters, with a number appended if two posts share keywords. Leave keywords blank and you get post1.jpg instead, which wastes the filename, so the readout warns you about empty keyword fields before you run.</p></div>
+    </details>
+    <details>
+      <summary><span class="q-n">06</span><span class="q-t">What size and quality should I export?</span><span class="q-i"></span></summary>
+      <div class="a"><p>2000px at 90% is the default and suits GBP well. Google wants at least 720px, so there is plenty of headroom, and the cap keeps a 90-photo batch fast. Drop to 1600px if you are working from phone photos and want smaller files. Go to 2400 or 3000 only when the photos are genuinely detailed and the extra pixels will survive Google's own recompression.</p></div>
+    </details>
+    <details>
+      <summary><span class="q-n">07</span><span class="q-t">Can I reuse a client list next month?</span><span class="q-i"></span></summary>
+      <div class="a"><p>Yes, two ways. Save list downloads a JSON file with every business, its coordinates, and all the keyword and description text, which you can import next month and just add fresh photos to. Duplicate does the same for a single business inside the current session, keeping the coordinates and clearing the keywords.</p></div>
+    </details>
+  </div>
+</section>
+
+<footer class="dock">
+  <div class="inner">
+    <div class="opts">
+      <select id="maxDimSelect" title="Longest edge of the exported photo">
+        <option value="1600">1600 px</option>
+        <option value="2000" selected>2000 px</option>
+        <option value="2400">2400 px</option>
+        <option value="3000">3000 px</option>
+      </select>
+      <select id="qualitySelect" title="JPEG quality">
+        <option value="0.82">Quality 82%</option>
+        <option value="0.9" selected>Quality 90%</option>
+        <option value="0.95">Quality 95%</option>
+      </select>
+    </div>
+    <div class="progress-wrap">
+      <div class="meter-row">
+        <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+        <span class="pct" id="pctText">0%</span>
+      </div>
+      <div class="status-text" id="statusText">Ready.</div>
+    </div>
+    <button class="primary" id="processBtn" disabled>Tag &amp; download ZIP</button>
+  </div>
+</footer>
+
+<div class="pagefoot">
+  <div class="wrap">
+    <div class="cols">
+      <div class="about">
+        <div class="logo">
+          <span class="logomark"><img class="logo-img" alt="B My Marketer"><span class="logo-fallback" aria-hidden="true">B</span></span>
+          <span class="wordmark">Bulk Photo Tagger</span>
+        </div>
+        <p>An internal tool by B My Marketer for tagging Google Business Profile photos at scale. Everything runs in the browser, so client files never leave your machine.</p>
+      </div>
+      <div>
+        <h4>Tool</h4>
+        <ul>
+          <li><a href="#queue">Queue</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#faq">Questions</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Reference</h4>
+        <ul>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="#how">Three steps</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>B My Marketer</h4>
+        <ul>
+          <li><a href="https://bmymarketer.com" target="_blank" rel="noopener">Website</a></li>
+          <li><a href="https://bmymarketer.com/services/search-engine-optimization/" target="_blank" rel="noopener">SEO services</a></li>
+          <li><a href="https://bmymarketer.com/contact/" target="_blank" rel="noopener">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="base">
+      <span>© B My Marketer. Runs entirely offline once loaded.</span>
+      <span>Ctrl / Cmd + Enter to run the batch</span>
+    </div>
+  </div>
+</div>
+
+<div class="dropveil" id="dropveil"><div class="dropveil-inner">Drop photos onto a business card</div></div>
+<div id="toasts"></div>
+
+<script>
+/* ──────────────────────────────────────────────────────────────
+   B MY MARKETER LOGO
+   Paste the logo here as a base64 data URI and it appears in the
+   header and the footer automatically. Embedding it rather than
+   linking keeps the tool working with no internet connection.
+
+     PNG:  data:image/png;base64,iVBORw0KGgo...
+     SVG:  data:image/svg+xml;base64,PHN2ZyB4bWxu...
+
+   Leave it empty and the blue "B" tile is used instead.
+   ────────────────────────────────────────────────────────────── */
+const BRAND_LOGO = '';
+
+(function applyLogo(){
+  if(!BRAND_LOGO) return;
+  const imgs = document.querySelectorAll('.logo-img');
+  if(!imgs.length) return;
+  imgs.forEach(img => { img.src = BRAND_LOGO; });
+  document.body.classList.add('has-logo');
+  // a wordmark is much wider than it is tall; an icon is roughly square
+  imgs[0].addEventListener('load', function(){
+    if(this.naturalWidth / this.naturalHeight > 1.6){
+      document.body.classList.add('logo-wide');
+    }
+  });
+  imgs.forEach(img => {
+    img.addEventListener('error', () => {
+      document.body.classList.remove('has-logo', 'logo-wide');
+    });
+  });
+})();
+
+(function(){
+  const container   = document.getElementById('businessesContainer');
+  const emptyState  = document.getElementById('emptyState');
+  const summaryBar  = document.getElementById('summaryBar');
+  const processBtn  = document.getElementById('processBtn');
+  const progressFill= document.getElementById('progressFill');
+  const statusText  = document.getElementById('statusText');
+  const toasts      = document.getElementById('toasts');
+  const maxDimSel   = document.getElementById('maxDimSelect');
+  const qualitySel  = document.getElementById('qualitySelect');
+
+  const STORAGE_KEY = 'bmm-gbp-tagger-v2';
+  const CONCURRENCY = 3;
+
+  // ---------- toasts ----------
+  function toast(msg, kind, action){
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind === 'bad' ? ' bad' : '');
+    const span = document.createElement('span');
+    span.textContent = msg;
+    el.appendChild(span);
+    if(action){
+      const btn = document.createElement('button');
+      btn.className = 'undo';
+      btn.textContent = action.label;
+      btn.addEventListener('click', () => { action.run(); dismiss(); });
+      el.appendChild(btn);
+    }
+    toasts.appendChild(el);
+    let timer = setTimeout(dismiss, action ? 8000 : 4200);
+    function dismiss(){
+      clearTimeout(timer);
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 320);
+    }
+  }
+
+  // ---------- coordinate parsing ----------
+  // Accepts "31.5204, 74.3587", a Google Maps URL, or a share link with !3d!4d
+  function parseCoords(text){
+    const t = String(text || '').trim();
+    if(!t) return null;
+    let m = t.match(/[!]3d(-?\d+(?:\.\d+)?)[!]4d(-?\d+(?:\.\d+)?)/)
+         || t.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/)
+         || t.match(/[?&]q=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/)
+         || t.match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,;|\s]\s*(-?\d{1,3}(?:\.\d+)?)$/);
+    if(!m) return null;
+    const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+    if(isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return {lat, lng};
+  }
+
+  function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+  function escapeHtml(s){ return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ---------- templates ----------
+  function postRowTemplate(idx, prefill){
+    prefill = prefill || {};
+    return `
+      <div class="post-row">
+        <span class="idx"><span class="pip"></span>Post ${idx+1}</span>
+        <button class="remove-post" title="Remove this post">✕</button>
+        <label class="file-drop">
+          <input type="file" accept="image/*" class="post-file">
+          <img class="thumb" alt="">
+          <span class="file-label">Choose photo<br>or drop it here</span>
+        </label>
+        <div class="post-fields">
+          <input class="post-keywords" placeholder="Keywords (comma-separated, e.g. plumber lahore, emergency repair)" value="${escapeAttr(prefill.keywords||'')}">
+          <textarea class="post-desc" placeholder="Description (about this post)">${escapeHtml(prefill.description||'')}</textarea>
+        </div>
+      </div>`;
+  }
+
+  function addBusinessCard(prefill, opts){
+    prefill = prefill || {};
+    opts = opts || {};
+    const card = document.createElement('div');
+    card.className = 'business-card';
+    const postsPrefill = (prefill.posts && prefill.posts.length) ? prefill.posts : [{},{},{}];
+    card.innerHTML = `
+      <div class="biz-header">
+        <input class="biz-name" placeholder="Business name" value="${escapeAttr(prefill.name||'')}">
+        <input class="biz-lat" placeholder="Latitude" value="${escapeAttr(prefill.lat||'')}">
+        <input class="biz-lng" placeholder="Longitude" value="${escapeAttr(prefill.lng||'')}">
+        <span class="biz-badge">0/${postsPrefill.length}</span>
+        <button class="ghost toggle-collapse" title="Collapse or expand"><span>▾</span></button>
+        <button class="remove-biz tiny" title="Remove this business">Remove</button>
+      </div>
+      <div class="biz-actions">
+        <button class="ghost tiny add-photos">+ Add photos</button>
+        <input type="file" accept="image/*" multiple class="bulk-file">
+        <button class="ghost tiny bulk-kw-btn">Bulk keywords</button>
+        <button class="ghost tiny duplicate-biz">Duplicate</button>
+        <a class="maps-link" href="#" target="_blank" rel="noopener">Find on Maps</a>
+        <span class="hint">Paste "lat, lng" or a Maps link into Latitude</span>
+      </div>
+      <div class="bulk-kw">
+        <textarea placeholder="One line per photo:&#10;plumber lahore, emergency plumber&#10;water tank cleaning lahore&#10;bathroom leak repair"></textarea>
+        <input class="bulk-desc" placeholder="Optional: one description to apply to every post">
+        <div class="row">
+          <button class="primary tiny apply-kw">Apply to posts</button>
+          <button class="ghost tiny cancel-kw">Cancel</button>
+          <span class="note-sm">Line 1 goes to Post 1, line 2 to Post 2, and so on. Extra lines create new posts.</span>
+        </div>
+      </div>
+      <div class="posts-grid"></div>
+      <div class="add-post-row"><button class="ghost add-post">+ Add another post</button></div>
+    `;
+    container.appendChild(card);
+
+    const postsGrid = card.querySelector('.posts-grid');
+    postsPrefill.forEach(p => addPostRow(postsGrid, p));
+
+    wireBusinessCard(card);
+    refreshAll();
+    if(!opts.silent) saveState();
+    return card;
+  }
+
+  function addPostRow(postsGrid, prefill){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = postRowTemplate(postsGrid.children.length, prefill);
+    const row = wrap.firstElementChild;
+    postsGrid.appendChild(row);
+    wirePostRow(row);
+    return row;
+  }
+
+  function renumber(grid){
+    Array.from(grid.children).forEach((r,i) => {
+      r.querySelector('.idx').innerHTML = '<span class="pip"></span>Post ' + (i+1);
+    });
+  }
+
+  // ---------- attaching photos ----------
+  function attachFile(row, file){
+    const fileInput = row.querySelector('.post-file');
+    try{
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+    }catch(e){ /* older browsers: the native picker still works */ }
+    paintFile(row, file);
+  }
+
+  function paintFile(row, file){
+    const dropLabel = row.querySelector('.file-drop');
+    const thumb     = row.querySelector('.thumb');
+    const labelSpan = row.querySelector('.file-label');
+    row.removeAttribute('data-status');
+    if(file){
+      const isHeic = /\.(heic|heif)$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+      if(thumb.dataset.url) URL.revokeObjectURL(thumb.dataset.url);
+      const url = URL.createObjectURL(file);
+      thumb.dataset.url = url;
+      thumb.src = url;
+      thumb.style.display = 'block';
+      labelSpan.textContent = isHeic ? (file.name + ' ⚠ HEIC') : file.name;
+      dropLabel.classList.remove('has-file');
+      void dropLabel.offsetWidth;              // replay the scan-in animation
+      dropLabel.classList.add('has-file');
+      dropLabel.title = isHeic ? 'HEIC photos fail to decode in most browsers. Convert to JPEG first.' : '';
+    } else {
+      if(thumb.dataset.url){ URL.revokeObjectURL(thumb.dataset.url); delete thumb.dataset.url; }
+      thumb.style.display = 'none';
+      labelSpan.textContent = 'Choose photo';
+      dropLabel.classList.remove('has-file');
+    }
+    refreshAll();
+  }
+
+  // fills empty slots first, then creates new rows as needed
+  function loadFiles(card, files){
+    const grid = card.querySelector('.posts-grid');
+    const list = Array.from(files).filter(f => !!f && (f.type.indexOf('image') === 0 || /\.(heic|heif)$/i.test(f.name || '')));
+    if(!list.length) return;
+    let placed = 0;
+    const rows = Array.from(grid.querySelectorAll('.post-row'));
+    for(const row of rows){
+      if(placed >= list.length) break;
+      if(!row.querySelector('.post-file').files[0]){
+        attachFile(row, list[placed++]);
+      }
+    }
+    while(placed < list.length){
+      const row = addPostRow(grid, {});
+      attachFile(row, list[placed++]);
+    }
+    renumber(grid);
+    refreshAll();
+    saveState();
+    toast(list.length + (list.length === 1 ? ' photo added.' : ' photos added.'));
+  }
+
+  function wirePostRow(row){
+    const fileInput = row.querySelector('.post-file');
+    const dropLabel = row.querySelector('.file-drop');
+    const removeBtn = row.querySelector('.remove-post');
+
+    fileInput.addEventListener('change', function(){
+      paintFile(row, this.files[0]);
+      saveState();
+    });
+
+    ['dragenter','dragover'].forEach(evt => {
+      dropLabel.addEventListener(evt, e => { e.preventDefault(); dropLabel.classList.add('dragging'); });
+    });
+    ['dragleave','drop'].forEach(evt => {
+      dropLabel.addEventListener(evt, () => dropLabel.classList.remove('dragging'));
+    });
+    dropLabel.addEventListener('drop', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if(!files || !files.length) return;
+      if(files.length === 1){
+        attachFile(row, files[0]);
+        refreshAll();
+        saveState();
+      } else {
+        loadFiles(row.closest('.business-card'), files);
+      }
+    });
+
+    removeBtn.addEventListener('click', function(){
+      const grid  = row.parentElement;
+      const thumb = row.querySelector('.thumb');
+      const file  = row.querySelector('.post-file').files[0] || null;
+      const data  = {
+        keywords: row.querySelector('.post-keywords').value,
+        description: row.querySelector('.post-desc').value
+      };
+      const index = Array.prototype.indexOf.call(grid.children, row);
+      if(thumb.dataset.url) URL.revokeObjectURL(thumb.dataset.url);
+      row.style.transition = 'opacity .2s ease, transform .2s ease';
+      row.style.opacity = '0';
+      row.style.transform = 'translateX(-8px)';
+      setTimeout(() => { row.remove(); renumber(grid); refreshAll(); saveState(); }, 190);
+      if(file || data.keywords || data.description){
+        toast('Post removed.', '', {label:'Undo', run: () => restorePost(grid, data, file, index)});
+      }
+    });
+
+    row.querySelectorAll('.post-keywords,.post-desc').forEach(inp => {
+      inp.addEventListener('input', saveState);
+    });
+  }
+
+  function wireBusinessCard(card){
+    const nameInput   = card.querySelector('.biz-name');
+    const latInput    = card.querySelector('.biz-lat');
+    const lngInput    = card.querySelector('.biz-lng');
+    const mapsLink    = card.querySelector('.maps-link');
+    const toggleBtn   = card.querySelector('.toggle-collapse');
+    const removeBtn   = card.querySelector('.remove-biz');
+    const addPostBtn  = card.querySelector('.add-post');
+    const postsGrid   = card.querySelector('.posts-grid');
+    const addPostWrap = card.querySelector('.add-post-row');
+    const bulkFile    = card.querySelector('.bulk-file');
+    const addPhotos   = card.querySelector('.add-photos');
+    const kwPanel     = card.querySelector('.bulk-kw');
+    const kwBtn       = card.querySelector('.bulk-kw-btn');
+    const dupBtn      = card.querySelector('.duplicate-biz');
+
+    mapsLink.addEventListener('click', function(e){
+      e.preventDefault();
+      const coords = parseCoords(latInput.value) ||
+        (latInput.value && lngInput.value ? {lat:latInput.value, lng:lngInput.value} : null);
+      const q = coords && !isNaN(parseFloat(coords.lat))
+        ? coords.lat + ',' + coords.lng
+        : (nameInput.value.trim() || 'business location');
+      window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q), '_blank');
+    });
+
+    // paste "31.52, 74.35" or a Maps URL into either coordinate box and both fill in
+    [latInput, lngInput].forEach(inp => {
+      inp.addEventListener('paste', function(e){
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        const c = parseCoords(text);
+        if(!c) return;
+        e.preventDefault();
+        latInput.value = c.lat;
+        lngInput.value = c.lng;
+        [latInput, lngInput].forEach(f => {
+          f.classList.remove('flash'); void f.offsetWidth; f.classList.add('flash');
+        });
+        refreshAll();
+        saveState();
+        toast('Coordinates read from what you pasted.');
+      });
+    });
+
+    toggleBtn.addEventListener('click', function(){
+      setCollapsed(card, postsGrid.style.display !== 'none');
+    });
+
+    removeBtn.addEventListener('click', function(){
+      const data  = readCard(card);
+      const files = Array.from(card.querySelectorAll('.post-row'))
+        .map(r => r.querySelector('.post-file').files[0] || null);
+      const index = Array.prototype.indexOf.call(container.children, card);
+      card.style.transition = 'opacity .22s ease, transform .22s ease';
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-6px)';
+      setTimeout(() => { card.remove(); refreshAll(); saveState(); }, 210);
+      toast('Removed "' + (data.name || 'business') + '".', '', {
+        label: 'Undo',
+        run: () => restoreBusiness(data, files, index)
+      });
+    });
+
+    dupBtn.addEventListener('click', function(){
+      const data = readCard(card);
+      data.name = (data.name || 'Business') + ' (copy)';
+      data.posts = data.posts.map(p => ({keywords:'', description:p.description}));
+      addBusinessCard(data);
+      toast('Duplicated with the same coordinates.');
+    });
+
+    addPhotos.addEventListener('click', () => bulkFile.click());
+    bulkFile.addEventListener('change', function(){
+      if(this.files && this.files.length) loadFiles(card, this.files);
+      this.value = '';
+    });
+
+    // drop a batch anywhere on the card
+    ['dragover'].forEach(evt => card.addEventListener(evt, e => e.preventDefault()));
+    card.addEventListener('drop', function(e){
+      if(e.target.closest('.file-drop')) return;   // single-slot drop handles itself
+      e.preventDefault();
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if(files && files.length) loadFiles(card, files);
+    });
+
+    kwBtn.addEventListener('click', () => {
+      kwPanel.classList.toggle('open');
+      if(kwPanel.classList.contains('open')) kwPanel.querySelector('textarea').focus();
+    });
+    card.querySelector('.cancel-kw').addEventListener('click', () => kwPanel.classList.remove('open'));
+    card.querySelector('.apply-kw').addEventListener('click', function(){
+      const lines = kwPanel.querySelector('textarea').value.split('\n').map(l => l.trim()).filter(Boolean);
+      const sharedDesc = kwPanel.querySelector('.bulk-desc').value.trim();
+      if(!lines.length && !sharedDesc){ toast('Nothing to apply. Both boxes are empty.', 'bad'); return; }
+      lines.forEach((line, i) => {
+        let row = postsGrid.children[i];
+        if(!row) row = addPostRow(postsGrid, {});
+        row.querySelector('.post-keywords').value = line;
+      });
+      if(sharedDesc){
+        Array.from(postsGrid.children).forEach(row => {
+          row.querySelector('.post-desc').value = sharedDesc;
+        });
+      }
+      renumber(postsGrid);
+      kwPanel.classList.remove('open');
+      refreshAll();
+      saveState();
+      const parts = [];
+      if(lines.length) parts.push('keywords on ' + lines.length + ' posts');
+      if(sharedDesc) parts.push('one description on all posts');
+      toast('Applied ' + parts.join(' and ') + '.');
+    });
+
+    addPostBtn.addEventListener('click', function(){
+      addPostRow(postsGrid, {});
+      refreshAll();
+      saveState();
+    });
+
+    [nameInput, latInput, lngInput].forEach(inp => {
+      inp.addEventListener('input', () => { refreshAll(); saveState(); });
+    });
+
+    card._els = {postsGrid, addPostWrap, toggleBtn};
+  }
+
+  function setCollapsed(card, collapsed){
+    const {postsGrid, addPostWrap, toggleBtn} = card._els;
+    card.classList.toggle('is-collapsed', collapsed);
+    postsGrid.style.display  = collapsed ? 'none' : 'flex';
+    addPostWrap.style.display = collapsed ? 'none' : 'block';
+    const caret = toggleBtn.querySelector('span');
+    if(caret) caret.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+  }
+
+  function readCard(card){
+    return {
+      name: card.querySelector('.biz-name').value,
+      lat:  card.querySelector('.biz-lat').value,
+      lng:  card.querySelector('.biz-lng').value,
+      posts: Array.from(card.querySelectorAll('.post-row')).map(row => ({
+        keywords: row.querySelector('.post-keywords').value,
+        description: row.querySelector('.post-desc').value
+      }))
+    };
+  }
+
+  function hasValidCoords(card){
+    const lat = parseFloat(card.querySelector('.biz-lat').value);
+    const lng = parseFloat(card.querySelector('.biz-lng').value);
+    return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  }
+
+  // ---------- number tickers ----------
+  // eased count-up, so a number arriving reads as a change not a swap
+  function tickTo(el, value){
+    if(!el) return;
+    const from = parseFloat(el.dataset.v || '0');
+    if(from === value){ el.textContent = fmt(value); el.dataset.v = value; return; }
+    el.dataset.v = value;
+    const start = performance.now();
+    const dur = Math.min(900, 260 + Math.abs(value - from) * 12);
+    function step(now){
+      const p = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - p, 3);          // ease-out cubic
+      el.textContent = fmt(Math.round(from + (value - from) * e));
+      if(p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function fmt(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  const LIFETIME_KEY = STORAGE_KEY + ':lifetime';
+  function lifetime(){
+    try{ return JSON.parse(localStorage.getItem(LIFETIME_KEY)) || {tagged:0, batches:0}; }
+    catch(e){ return {tagged:0, batches:0}; }
+  }
+  function bumpLifetime(tagged){
+    const l = lifetime();
+    l.tagged += tagged;
+    l.batches += 1;
+    try{ localStorage.setItem(LIFETIME_KEY, JSON.stringify(l)); }catch(e){}
+    paintLifetime();
+  }
+  function paintLifetime(){
+    const l = lifetime();
+    tickTo(document.getElementById('statTagged'), l.tagged);
+    tickTo(document.getElementById('statBatches'), l.batches);
+    // ~75 seconds per photo doing this by hand, conservatively
+    tickTo(document.getElementById('statSaved'), Math.round(l.tagged * 75 / 60));
+  }
+
+  // ---------- neon light bed ----------
+  // Rendered rather than filmed: a low-res canvas of additive light ribbons,
+  // upscaled and blurred by CSS. Costs a few KB instead of a video file.
+  (function neonBed(){
+    const cv = document.getElementById('neon');
+    if(!cv) return;
+    const ctx = cv.getContext('2d', {alpha:false});
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // deliberately coarse: CSS blur does the smoothing, so this stays cheap
+    const SCALE = 0.24;
+    let W = 0, H = 0;
+
+    function size(){
+      const r = cv.getBoundingClientRect();
+      W = Math.max(240, Math.round(r.width  * SCALE));
+      H = Math.max(160, Math.round(r.height * SCALE));
+      cv.width = W; cv.height = H;
+      ctx.fillStyle = '#030303';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const ribbons = [
+      {amp:.13, freq:1.5, speed:.055, drift:.22, w:2.4, col:'47,143,234',  a:.78, y:.24},
+      {amp:.10, freq:2.3, speed:.080, drift:.34, w:1.7, col:'79,180,255',  a:.70, y:.44},
+      {amp:.16, freq:1.1, speed:.040, drift:.15, w:3.4, col:'30,115,190',   a:.60, y:.63},
+      {amp:.08, freq:3.1, speed:.105, drift:.44, w:1.2, col:'150,215,255', a:.52, y:.78},
+      {amp:.12, freq:1.9, speed:.065, drift:.28, w:1.5, col:'234,243,255', a:.26, y:.34},
+      {amp:.09, freq:2.7, speed:.092, drift:.38, w:1.4, col:'79,180,255',  a:.46, y:.90}
+    ];
+
+    const orbs = [
+      {x:.22, y:.30, r:.34, col:'47,143,234',  a:.26, sx:.021, sy:.013, dx:.13, dy:.08},
+      {x:.74, y:.24, r:.28, col:'79,180,255',  a:.22, sx:-.017, sy:.019, dx:.10, dy:.07},
+      {x:.52, y:.62, r:.40, col:'0,10,38',     a:.42, sx:.011, sy:-.015, dx:.16, dy:.05}
+    ];
+
+    function frame(t){
+      // partial clear leaves trails, which is what makes it read as motion light
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(3,3,3,0.20)';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.globalCompositeOperation = 'lighter';
+
+      orbs.forEach(o => {
+        const ox = o.x + Math.sin(t * o.sx) * o.dx;
+        const oy = o.y + Math.cos(t * o.sy) * o.dy;
+        const g = ctx.createRadialGradient(ox*W, oy*H, 0, ox*W, oy*H, o.r*W);
+        g.addColorStop(0, 'rgba(' + o.col + ',' + o.a + ')');
+        g.addColorStop(1, 'rgba(' + o.col + ',0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      });
+
+      ribbons.forEach((r, i) => {
+        ctx.beginPath();
+        for(let px = 0; px <= W; px += 3){
+          const u = px / W;
+          const y = (r.y
+            + Math.sin(u * Math.PI * 2 * r.freq + t * r.speed + i) * r.amp
+            + Math.sin(u * Math.PI * 5.7 + t * r.speed * 1.7) * r.amp * 0.22
+            + Math.sin(t * r.drift * 0.35 + i) * 0.04) * H;
+          px === 0 ? ctx.moveTo(px, y) : ctx.lineTo(px, y);
+        }
+        // three passes: wide and faint under, tight and bright on top
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = 'rgba(' + r.col + ',' + (r.a * 0.20) + ')';
+        ctx.lineWidth = r.w * 5.5; ctx.stroke();
+        ctx.strokeStyle = 'rgba(' + r.col + ',' + (r.a * 0.42) + ')';
+        ctx.lineWidth = r.w * 2.2; ctx.stroke();
+        ctx.strokeStyle = 'rgba(' + r.col + ',' + r.a + ')';
+        ctx.lineWidth = r.w; ctx.stroke();
+      });
+
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // warm the trails up so the first painted frame is not a bare canvas
+    function prime(t){ for(let i = 0; i < 26; i++) frame(t + i * 0.4); }
+
+    size();
+    prime(0);
+
+    if(reduce) return;   // one static frame, no loop
+
+    let raf = null, last = 0, clock = 0;
+    function loop(now){
+      raf = requestAnimationFrame(loop);
+      // the batch encoder needs the CPU more than the backdrop does
+      if(document.hidden ||
+         document.body.classList.contains('is-processing') ||
+         window.scrollY > cv.getBoundingClientRect().height + 200) return;
+      if(now - last < 33) return;          // hold it near 30fps
+      last = now;
+      clock += 0.6;
+      frame(clock);
+    }
+    raf = requestAnimationFrame(loop);
+
+    let rt = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(rt);
+      rt = setTimeout(() => { size(); prime(clock); }, 180);
+    });
+  })();
+
+  // ---------- live plot ----------
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const PLOT_W = 720, PLOT_H = 300;
+  const plotEl    = document.querySelector('.plot');
+  const pinLayer  = document.getElementById('pinLayer');
+  const plotCount = document.getElementById('plotCount');
+  let plotSignature = '';
+
+  function project(lat, lng){
+    return {
+      x: (parseFloat(lng) + 180) / 360 * PLOT_W,
+      y: (90 - parseFloat(lat)) / 180 * PLOT_H
+    };
+  }
+
+  function drawGraticule(){
+    const g = document.getElementById('graticule');
+    for(let lng = -180; lng <= 180; lng += 30){
+      const x = (lng + 180) / 360 * PLOT_W;
+      const line = document.createElementNS(SVGNS,'line');
+      line.setAttribute('x1',x); line.setAttribute('x2',x);
+      line.setAttribute('y1',0); line.setAttribute('y2',PLOT_H);
+      if(lng === 0) line.setAttribute('class','major');
+      g.appendChild(line);
+    }
+    for(let lat = -90; lat <= 90; lat += 30){
+      const y = (90 - lat) / 180 * PLOT_H;
+      const line = document.createElementNS(SVGNS,'line');
+      line.setAttribute('x1',0); line.setAttribute('x2',PLOT_W);
+      line.setAttribute('y1',y); line.setAttribute('y2',y);
+      if(lat === 0) line.setAttribute('class','major');
+      g.appendChild(line);
+      if(lat !== -90 && lat !== 90){
+        const t = document.createElementNS(SVGNS,'text');
+        t.setAttribute('x',6); t.setAttribute('y',y - 4);
+        t.textContent = (lat > 0 ? '+' : '') + lat + '\u00B0';
+        g.appendChild(t);
+      }
+    }
+  }
+  drawGraticule();
+
+  function makePin(card, idx){
+    const lat = card.querySelector('.biz-lat').value;
+    const lng = card.querySelector('.biz-lng').value;
+    const {x, y} = project(lat, lng);
+    const name = (card.querySelector('.biz-name').value.trim() || 'Business ' + (idx+1)).slice(0, 22);
+
+    const g = document.createElementNS(SVGNS,'g');
+    g.setAttribute('class','pin');
+    g.setAttribute('data-b', idx);
+    g.setAttribute('transform','translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ')');
+
+    const tick = document.createElementNS(SVGNS,'line');
+    tick.setAttribute('class','tick');
+    tick.setAttribute('x1',0); tick.setAttribute('x2',0);
+    tick.setAttribute('y1',0); tick.setAttribute('y2', y > PLOT_H/2 ? -22 : 22);
+    g.appendChild(tick);
+
+    const halo = document.createElementNS(SVGNS,'circle');
+    halo.setAttribute('class','halo'); halo.setAttribute('r',22);
+    g.appendChild(halo);
+
+    const ring = document.createElementNS(SVGNS,'circle');
+    ring.setAttribute('class','ring'); ring.setAttribute('r',5);
+    ring.style.animationDelay = (idx * 0.35) + 's';
+    g.appendChild(ring);
+
+    const burst = document.createElementNS(SVGNS,'circle');
+    burst.setAttribute('class','burst'); burst.setAttribute('r',4);
+    burst.style.opacity = 0;
+    g.appendChild(burst);
+
+    const core = document.createElementNS(SVGNS,'circle');
+    core.setAttribute('class','core'); core.setAttribute('r',3.6);
+    g.appendChild(core);
+
+    const label = document.createElementNS(SVGNS,'text');
+    label.setAttribute('class','label');
+    label.setAttribute('text-anchor', x > PLOT_W - 110 ? 'end' : 'start');
+    label.setAttribute('x', x > PLOT_W - 110 ? -8 : 8);
+    label.setAttribute('y', y > PLOT_H/2 ? -26 : 30);
+    label.textContent = name;
+    g.appendChild(label);
+
+    g.style.animationDelay = (idx * 0.07) + 's';
+    return g;
+  }
+
+  function renderPlot(){
+    const cards = Array.from(container.querySelectorAll('.business-card'));
+    const plotted = cards.filter(hasValidCoords);
+    const sig = plotted.map(c =>
+      c.querySelector('.biz-name').value.trim() + '|' +
+      c.querySelector('.biz-lat').value + '|' +
+      c.querySelector('.biz-lng').value
+    ).join(';');
+    if(sig === plotSignature) return;
+    plotSignature = sig;
+
+    pinLayer.innerHTML = '';
+    plotted.forEach((card, i) => {
+      pinLayer.appendChild(makePin(card, cards.indexOf(card)));
+    });
+    plotEl.classList.toggle('has-pins', plotted.length > 0);
+    plotCount.textContent = plotted.length
+      ? plotted.length + (plotted.length === 1 ? ' location plotted' : ' locations plotted')
+      : 'No locations plotted';
+  }
+
+  // fires a ring off the pin of whichever business just finished a photo
+  function pulsePin(bIdx){
+    const pin = pinLayer.querySelector('.pin[data-b="' + bIdx + '"]');
+    if(!pin) return;
+    pin.classList.remove('active');
+    void pin.getBoundingClientRect();
+    pin.classList.add('active');
+    setTimeout(() => pin.classList.remove('active'), 760);
+  }
+
+  function restoreBusiness(data, files, index){
+    const card = addBusinessCard(data, {silent:true});
+    if(index >= 0 && index < container.children.length - 1){
+      container.insertBefore(card, container.children[index]);
+    }
+    const rows = card.querySelectorAll('.post-row');
+    files.forEach((f, i) => { if(f && rows[i]) attachFile(rows[i], f); });
+    refreshAll();
+    saveState();
+    card.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  function restorePost(grid, data, file, index){
+    if(!grid.isConnected) return;
+    const row = addPostRow(grid, data);
+    if(index >= 0 && index < grid.children.length - 1){
+      grid.insertBefore(row, grid.children[index]);
+    }
+    if(file) attachFile(row, file);
+    renumber(grid);
+    refreshAll();
+    saveState();
+  }
+
+  // scrolls to whatever is still blocking the run
+  function jumpTo(el){
+    if(!el) return;
+    const card = el.closest('.business-card');
+    if(card && card.classList.contains('is-collapsed')) setCollapsed(card, false);
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    const focusable = el.matches('input') ? el : el.querySelector('input');
+    if(focusable) setTimeout(() => focusable.focus(), 350);
+  }
+
+  const readout = document.getElementById('readout');
+  readout.addEventListener('click', function(e){
+    const chip = e.target.closest('.chip.warn');
+    if(chip && chip.dataset.target === 'geo'){
+      const card = Array.from(container.querySelectorAll('.business-card')).find(c =>
+        !hasValidCoords(c) &&
+        Array.from(c.querySelectorAll('.post-file')).some(f => f.files[0])
+      );
+      jumpTo(card && card.querySelector('.biz-lat'));
+    }
+    if(chip && chip.dataset.target === 'kw'){
+      jumpTo(container.querySelector('.post-row.needs-kw .post-keywords'));
+    }
+  });
+
+  function renderReadout(stats){
+    if(!stats.cards){ readout.innerHTML = ''; return; }
+    let html = '<span class="chip ready"><span class="d"></span>' +
+      stats.files + ' of ' + stats.slots + ' slots filled</span>';
+    if(stats.missingGeo){
+      html += '<span class="chip warn" data-target="geo"><span class="d"></span>' +
+        stats.missingGeo + (stats.missingGeo === 1 ? ' business needs' : ' businesses need') +
+        ' coordinates</span>';
+    }
+    if(stats.missingKw){
+      html += '<span class="chip warn" data-target="kw"><span class="d"></span>' +
+        stats.missingKw + (stats.missingKw === 1 ? ' photo has' : ' photos have') +
+        ' no keywords</span>';
+    }
+    readout.innerHTML = html;
+  }
+
+  function applyFilter(){
+    const q = (document.getElementById('queueSearch').value || '').trim().toLowerCase();
+    let hidden = 0;
+    container.querySelectorAll('.business-card').forEach(card => {
+      const name = card.querySelector('.biz-name').value.toLowerCase();
+      const show = !q || name.indexOf(q) !== -1;
+      card.style.display = show ? '' : 'none';
+      if(!show) hidden++;
+    });
+    return hidden;
+  }
+
+  function refreshAll(){
+    const cards = Array.from(container.querySelectorAll('.business-card'));
+    emptyState.style.display = cards.length ? 'none' : 'block';
+
+    let totalSlots = 0, totalFiles = 0, missingGeo = 0, missingKw = 0;
+    cards.forEach(card => {
+      const rows = card.querySelectorAll('.post-row');
+      let filled = 0;
+      rows.forEach(r => {
+        const hasFile = !!r.querySelector('.post-file').files[0];
+        if(hasFile) filled++;
+        const needsKw = hasFile && !r.querySelector('.post-keywords').value.trim();
+        r.classList.toggle('needs-kw', needsKw);
+        if(needsKw) missingKw++;
+      });
+      if(filled && !hasValidCoords(card)) missingGeo++;
+      totalSlots += rows.length;
+      totalFiles += filled;
+      const badge = card.querySelector('.biz-badge');
+      badge.textContent = filled + '/' + rows.length;
+      badge.classList.toggle('complete', rows.length > 0 && filled === rows.length);
+      card.classList.toggle('geo-locked', hasValidCoords(card));
+    });
+
+    summaryBar.textContent = cards.length + ' businesses • ' + totalFiles + '/' + totalSlots + ' photos';
+    renderReadout({cards:cards.length, slots:totalSlots, files:totalFiles, missingGeo, missingKw});
+    tickTo(document.getElementById('statQueued'), totalFiles);
+    tickTo(document.getElementById('statPlotted'), cards.filter(hasValidCoords).length);
+    applyFilter();
+    renderPlot();
+    processBtn.disabled = totalFiles === 0;
+    processBtn.textContent = totalFiles
+      ? 'Tag ' + totalFiles + ' photo' + (totalFiles === 1 ? '' : 's') + ' & download'
+      : 'Tag & download ZIP';
+  }
+
+  // ---------- autosave (text only, since browsers can't hold on to the photos) ----------
+  let saveTimer = null;
+  function saveState(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try{
+        const data = Array.from(container.querySelectorAll('.business-card')).map(readCard);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }catch(e){ /* private mode or storage full - not worth interrupting the user */ }
+    }, 400);
+  }
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      const data = JSON.parse(raw);
+      return Array.isArray(data) && data.length ? data : null;
+    }catch(e){ return null; }
+  }
+  function clearState(){
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  }
+
+  // ---------- EXIF helpers ----------
+  function decToDmsRational(deg){
+    deg = Math.abs(deg);
+    const d = Math.floor(deg);
+    const minFloat = (deg - d) * 60;
+    const m = Math.floor(minFloat);
+    const secFloat = (minFloat - m) * 60;
+    const s = Math.round(secFloat * 100);
+    return [[d,1],[m,1],[s,100]];
+  }
+
+  function strToXPArray(str){
+    const arr = [];
+    for(let i=0;i<str.length;i++){
+      const code = str.charCodeAt(i);
+      arr.push(code & 0xff, (code>>8) & 0xff);
+    }
+    arr.push(0,0);
+    return arr;
+  }
+
+  // reused across the whole batch instead of allocating one canvas per photo
+  const workCanvas = document.createElement('canvas');
+  const workCtx = workCanvas.getContext('2d');
+
+  async function decodeImage(file){
+    if(window.createImageBitmap){
+      try{
+        return await createImageBitmap(file, {imageOrientation:'from-image'});
+      }catch(e){ /* fall through to the <img> path */ }
+    }
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('File read failed'));
+      reader.onload = e => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Photo could not be decoded by the browser. If this is a HEIC/HEIF (iPhone) file,, convert it to JPEG first.'));
+        img.onload = () => resolve(img);
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function fileToJpegDataUrl(file, maxDim, quality){
+    const src = await decodeImage(file);
+    let w = src.width || src.naturalWidth;
+    let h = src.height || src.naturalHeight;
+    if(!w || !h) throw new Error('Photo has no readable dimensions.');
+    if(w > maxDim || h > maxDim){
+      const scale = Math.min(maxDim/w, maxDim/h);
+      w = Math.round(w*scale); h = Math.round(h*scale);
+    }
+    workCanvas.width = w; workCanvas.height = h;
+    workCtx.drawImage(src, 0, 0, w, h);
+    if(src.close) src.close();          // free the bitmap right away
+    return workCanvas.toDataURL('image/jpeg', quality);
+  }
+
+  function embedExif(dataUrl, lat, lng, businessName, keywords, description){
+    const zeroth = {};
+    const gps = {};
+
+    const latF = parseFloat(lat), lngF = parseFloat(lng);
+    if(!isNaN(latF) && !isNaN(lngF) && latF >= -90 && latF <= 90 && lngF >= -180 && lngF <= 180){
+      gps[piexif.GPSIFD.GPSVersionID] = [2,2,0,0];
+      gps[piexif.GPSIFD.GPSLatitudeRef] = latF >= 0 ? 'N' : 'S';
+      gps[piexif.GPSIFD.GPSLatitude] = decToDmsRational(latF);
+      gps[piexif.GPSIFD.GPSLongitudeRef] = lngF >= 0 ? 'E' : 'W';
+      gps[piexif.GPSIFD.GPSLongitude] = decToDmsRational(lngF);
+      gps[piexif.GPSIFD.GPSMapDatum] = 'WGS-84';
+    }
+
+    if(businessName) zeroth[piexif.ImageIFD.XPTitle] = strToXPArray(businessName);
+    if(keywords) zeroth[piexif.ImageIFD.XPKeywords] = strToXPArray(keywords);
+    if(description){
+      zeroth[piexif.ImageIFD.XPComment] = strToXPArray(description);
+      if(/^[\x00-\x7F]*$/.test(description)){
+        zeroth[piexif.ImageIFD.ImageDescription] = description;
+      }
+    }
+
+    const exifObj = {"0th": zeroth, "GPS": gps};
+    const exifBytes = piexif.dump(exifObj);
+    return piexif.insert(exifBytes, dataUrl);
+  }
+
+  function dataUrlToUint8Array(dataUrl){
+    const base64 = dataUrl.split(',')[1];
+    const binary = atob(base64);
+    const arr = new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++) arr[i] = binary.charCodeAt(i);
+    return arr;
+  }
+
+  function sanitizeName(name){
+    return String(name||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  }
+
+  const pctText = document.getElementById('pctText');
+  let pctShown = 0, pctTarget = 0, pctRaf = null;
+  function setProgress(pct){
+    progressFill.style.width = pct + '%';
+    pctTarget = pct;
+    if(pctRaf) return;
+    const step = () => {
+      const diff = pctTarget - pctShown;
+      if(Math.abs(diff) < 0.5){
+        pctShown = pctTarget;
+        pctText.textContent = Math.round(pctShown) + '%';
+        pctRaf = null;
+        return;
+      }
+      pctShown += diff * 0.18;
+      pctText.textContent = Math.round(pctShown) + '%';
+      pctRaf = requestAnimationFrame(step);
+    };
+    pctRaf = requestAnimationFrame(step);
+  }
+  function setStatus(text){ statusText.textContent = text; }
+
+  // ---------- process the batch ----------
+  async function processAll(){
+    const cards = Array.from(container.querySelectorAll('.business-card'));
+    const jobs = [];
+    const usedNamesByBiz = new Map();
+    let missingGeo = 0;
+
+    cards.forEach((card, bIdx) => {
+      const name = card.querySelector('.biz-name').value.trim() || ('Business ' + (bIdx+1));
+      const lat  = card.querySelector('.biz-lat').value.trim();
+      const lng  = card.querySelector('.biz-lng').value.trim();
+      const rows = Array.from(card.querySelectorAll('.post-row'));
+      const rowsWithFiles = rows.filter(r => r.querySelector('.post-file').files[0]);
+      if(rowsWithFiles.length && !hasValidCoords(card)) missingGeo++;
+
+      rows.forEach((row, pIdx) => {
+        const file = row.querySelector('.post-file').files[0];
+        if(!file) return;
+        row.removeAttribute('data-status');
+
+        const folder = sanitizeName(name) || ('business-' + (bIdx+1));
+        const keywords = row.querySelector('.post-keywords').value.trim();
+
+        // names are resolved up front so parallel workers can't collide
+        if(!usedNamesByBiz.has(bIdx)) usedNamesByBiz.set(bIdx, new Set());
+        const used = usedNamesByBiz.get(bIdx);
+        let base = sanitizeName(keywords);
+        if(base.length > 90) base = base.slice(0,90).replace(/-+$/,'');
+        if(!base) base = 'post' + (pIdx+1);
+        let filename = base + '.jpg';
+        let counter = 2;
+        while(used.has(filename)){ filename = base + '-' + counter + '.jpg'; counter++; }
+        used.add(filename);
+
+        jobs.push({
+          bIdx, pIdx, name, lat, lng, file, row, folder, filename,
+          keywords,
+          description: row.querySelector('.post-desc').value.trim()
+        });
+      });
+    });
+
+    if(jobs.length === 0){ setStatus('No photos attached.'); return; }
+    if(!checkLibraries()){ setStatus('Required libraries did not load. See the warning above.'); return; }
+
+    if(missingGeo > 0){
+      const ok = confirm(missingGeo + (missingGeo === 1 ? ' business has' : ' businesses have') +
+        ' no valid coordinates. Their photos will get keywords and a description but no GPS. Continue anyway?');
+      if(!ok){ setStatus('Cancelled. Add the missing coordinates and run again.'); return; }
+    }
+
+    const maxDim = parseInt(maxDimSel.value, 10);
+    const quality = parseFloat(qualitySel.value);
+
+    processBtn.disabled = true;
+    document.body.classList.add('is-processing');
+    const errorPanel = document.getElementById('errorPanel');
+    const errorList  = document.getElementById('errorList');
+    errorPanel.style.display = 'none';
+    errorList.innerHTML = '';
+
+    const zip = new JSZip();
+    const errorDetails = [];
+    const started = Date.now();
+    let cursor = 0, done = 0;
+
+    function etaText(){
+      if(done < 2) return '';
+      const per = (Date.now() - started) / done;
+      const left = Math.round(per * (jobs.length - done) / 1000);
+      if(left < 1) return '';
+      return left >= 60
+        ? '  ~' + Math.ceil(left/60) + 'm left'
+        : '  ~' + left + 's left';
+    }
+
+    async function worker(){
+      while(cursor < jobs.length){
+        const job = jobs[cursor++];
+        setStatus('Tagging ' + (done+1) + ' of ' + jobs.length + ': ' + job.name + etaText());
+        try{
+          const dataUrl = await fileToJpegDataUrl(job.file, maxDim, quality);
+          const tagged  = embedExif(dataUrl, job.lat, job.lng, job.name, job.keywords, job.description);
+          zip.file(job.folder + '/' + job.filename, dataUrlToUint8Array(tagged));
+          job.row.setAttribute('data-status','done');
+          pulsePin(job.bIdx);
+        }catch(err){
+          console.error('Failed on', job.name, job.pIdx, err);
+          job.row.setAttribute('data-status','failed');
+          errorDetails.push({
+            name: job.name, pIdx: job.pIdx, fileName: job.file.name,
+            message: (err && err.message) ? err.message : String(err)
+          });
+        }
+        done++;
+        setProgress(Math.round(done/jobs.length*100));
+        await new Promise(r => setTimeout(r, 0));   // let the UI paint
+      }
+    }
+
+    await Promise.all(
+      Array.from({length: Math.min(CONCURRENCY, jobs.length)}, worker)
+    );
+
+    const errors = errorDetails.length;
+    if(errors > 0){
+      errorDetails.forEach(e => {
+        const li = document.createElement('li');
+        li.textContent = e.name + ' / Post ' + (e.pIdx+1) + ' (' + e.fileName + '): ' + e.message;
+        errorList.appendChild(li);
+      });
+      errorPanel.style.display = 'block';
+    }
+
+    const okCount = jobs.length - errors;
+    if(okCount === 0){
+      setStatus('No photos could be processed. See the details below.');
+      setProgress(0);
+      processBtn.disabled = false;
+      document.body.classList.remove('is-processing');
+      toast('Nothing was tagged. Check the error list.', 'bad');
+      return;
+    }
+
+    setStatus('Packing the ZIP...');
+    // JPEGs are already compressed, so storing beats deflating by a wide margin
+    const blob = await zip.generateAsync({type:'blob', compression:'STORE'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gbp-tagged-photos.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 20000);
+
+    bumpLifetime(okCount);
+    const secs = Math.max(1, Math.round((Date.now() - started)/1000));
+    setStatus('Done: ' + okCount + ' tagged in ' + secs + 's' + (errors ? ', ' + errors + ' failed' : '') + '.');
+    setProgress(100);
+    processBtn.disabled = false;
+    document.body.classList.remove('is-processing');
+    toast(okCount + ' photos tagged and downloaded.' + (errors ? ' ' + errors + ' failed.' : ''), errors ? 'bad' : '');
+  }
+
+  // ---------- import / export ----------
+  function exportConfig(){
+    const data = Array.from(container.querySelectorAll('.business-card')).map(readCard);
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'gbp-business-list.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    toast('Business list saved.');
+  }
+
+  function importConfig(file){
+    const reader = new FileReader();
+    reader.onload = e => {
+      try{
+        const data = JSON.parse(e.target.result);
+        if(!Array.isArray(data)) throw new Error('Invalid file');
+        container.innerHTML = '';
+        data.forEach(b => addBusinessCard(b, {silent:true}));
+        refreshAll();
+        saveState();
+        setStatus('Business list imported. Now attach the photos.');
+        toast('Imported ' + data.length + ' businesses. Attach the photos to run the batch.');
+      }catch(err){
+        toast('That file is not a saved business list.', 'bad');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------- toolbar ----------
+  document.getElementById('addBusinessBtn').addEventListener('click', () => {
+    const card = addBusinessCard();
+    card.querySelector('.biz-name').focus();
+    card.scrollIntoView({behavior:'smooth', block:'center'});
+  });
+  document.querySelectorAll('.pill-btn[data-act]').forEach(btn => {
+    btn.addEventListener('click', function(){
+      if(this.dataset.act === 'add'){
+        const card = addBusinessCard();
+        card.querySelector('.biz-name').focus();
+        card.scrollIntoView({behavior:'smooth', block:'center'});
+      }
+      if(this.dataset.act === 'import') document.getElementById('importFile').click();
+    });
+  });
+
+  // only one answer open at a time, the way 21st's accordion behaves
+  document.querySelectorAll('.faq-list details').forEach(d => {
+    d.addEventListener('toggle', function(){
+      if(!this.open) return;
+      document.querySelectorAll('.faq-list details').forEach(o => { if(o !== this) o.open = false; });
+    });
+  });
+
+  document.getElementById('emptyAddBtn').addEventListener('click', () => {
+    const card = addBusinessCard();
+    card.querySelector('.biz-name').focus();
+  });
+  document.getElementById('exportBtn').addEventListener('click', exportConfig);
+  document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+  document.getElementById('importFile').addEventListener('change', function(){
+    if(this.files[0]) importConfig(this.files[0]);
+    this.value = '';
+  });
+
+  let allCollapsed = false;
+  document.getElementById('collapseAllBtn').addEventListener('click', function(){
+    allCollapsed = !allCollapsed;
+    container.querySelectorAll('.business-card').forEach(c => setCollapsed(c, allCollapsed));
+    this.textContent = allCollapsed ? 'Expand all' : 'Collapse all';
+  });
+
+  document.getElementById('clearAllBtn').addEventListener('click', function(){
+    if(!container.children.length) return;
+    if(confirm('Clear every business and photo from the queue?')){
+      container.innerHTML = '';
+      clearState();
+      refreshAll();
+      setStatus('Ready.');
+      setProgress(0);
+      toast('Queue cleared.');
+    }
+  });
+
+  processBtn.addEventListener('click', processAll);
+
+  document.getElementById('queueSearch').addEventListener('input', function(){
+    const hidden = applyFilter();
+    if(hidden && !container.querySelector('.business-card:not([style*="none"])')){
+      setStatus('No business matches that filter.');
+    }
+  });
+
+  const guideToggle = document.getElementById('guideToggle');
+  function applyGuide(hidden){
+    document.body.classList.toggle('guide-hidden', hidden);
+    guideToggle.textContent = hidden ? 'Show guide' : 'Hide guide';
+  }
+  guideToggle.addEventListener('click', function(){
+    const hidden = !document.body.classList.contains('guide-hidden');
+    applyGuide(hidden);
+    try{ localStorage.setItem(STORAGE_KEY + ':guide', hidden ? '1' : '0'); }catch(e){}
+  });
+  try{ applyGuide(localStorage.getItem(STORAGE_KEY + ':guide') === '1'); }catch(e){}
+
+  [maxDimSel, qualitySel].forEach(sel => {
+    sel.addEventListener('change', () => {
+      try{ localStorage.setItem(STORAGE_KEY + ':' + sel.id, sel.value); }catch(e){}
+    });
+    try{
+      const v = localStorage.getItem(STORAGE_KEY + ':' + sel.id);
+      if(v) sel.value = v;
+    }catch(e){}
+  });
+
+  // Ctrl/Cmd + Enter runs the batch
+  document.addEventListener('keydown', function(e){
+    if((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !processBtn.disabled){
+      e.preventDefault();
+      processAll();
+    }
+  });
+
+  // stop the browser from opening a dropped photo in a new tab,
+  // and light up every card as a target while files are in flight
+  let dragDepth = 0;
+  window.addEventListener('dragenter', function(e){
+    if(!e.dataTransfer || Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') === -1) return;
+    dragDepth++;
+    document.body.classList.add('dragging-files');
+  });
+  window.addEventListener('dragleave', function(){
+    dragDepth = Math.max(0, dragDepth - 1);
+    if(!dragDepth) document.body.classList.remove('dragging-files');
+  });
+  ['dragover','drop'].forEach(evt => window.addEventListener(evt, function(e){
+    e.preventDefault();
+    if(evt === 'drop'){
+      dragDepth = 0;
+      document.body.classList.remove('dragging-files');
+    }
+  }));
+
+  // ---------- scroll reveal ----------
+  // sections rise into place the first time they cross into view
+  (function scrollReveal(){
+    const targets = document.querySelectorAll('.reveal, .reveal-group');
+    if(!targets.length) return;
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      targets.forEach(t => t.classList.add('in-view'));
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){
+          entry.target.classList.add('in-view');
+          io.unobserve(entry.target);
+        }
+      });
+    }, {threshold:0.15, rootMargin:'0px 0px -40px 0px'});
+    targets.forEach(t => io.observe(t));
+  })();
+
+  // ---------- library check ----------
+  function checkLibraries(){
+    const ok = typeof piexif !== 'undefined' && typeof JSZip !== 'undefined'
+      && piexif.GPSIFD && piexif.ImageIFD
+      && typeof piexif.dump === 'function' && typeof piexif.insert === 'function';
+    if(!ok){
+      if(!document.querySelector('.lib-warning')){
+        const banner = document.createElement('div');
+        banner.className = 'lib-warning';
+        banner.textContent = 'Required libraries did not load. Check your connection and reload the page (Ctrl/Cmd+R). On office or school Wi-Fi, cdnjs.cloudflare.com may be blocked, so try mobile data.';
+        document.body.insertBefore(banner, document.body.firstChild);
+      }
+      return false;
+    }
+    return true;
+  }
+  checkLibraries();
+
+  // ---------- boot ----------
+  paintLifetime();
+
+  const restored = loadState();
+  if(restored){
+    restored.forEach(b => addBusinessCard(b, {silent:true}));
+    refreshAll();
+    setStatus('Restored your last list. Attach the photos to run it.');
+    toast('Picked up where you left off. Photos need re-attaching.');
+    document.getElementById('queue').scrollIntoView({block:'start'});
+  } else {
+    addBusinessCard(null, {silent:true});
+    refreshAll();
+  }
+})();
+</script>
+</body>
+</html>
